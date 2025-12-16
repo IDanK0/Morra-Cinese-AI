@@ -321,6 +321,65 @@ class Renderer:
         moves_text = f"Tu: {move_names.get(player_move, '?')} vs CPU: {move_names.get(cpu_move, '?')}"
         self.draw_text(moves_text, (self.width // 2, center_y + 50), 'small', COLORS['white'], center=True)
     
+    def draw_result_banner_improved(self,
+                                    result: str,
+                                    player_move: str,
+                                    cpu_move: str,
+                                    center_y: int):
+        """
+        Disegna un banner migliorato con il risultato del round.
+        
+        Args:
+            result: 'player', 'cpu', o 'draw'
+            player_move: Mossa del giocatore
+            cpu_move: Mossa della CPU
+            center_y: Posizione Y centrale
+        """
+        # Colore e testo basati sul risultato
+        if result == 'player':
+            bg_color = COLORS['success']
+            text = "✓ HAI VINTO IL ROUND!"
+            explanation = self._get_win_explanation(player_move, cpu_move)
+        elif result == 'cpu':
+            bg_color = COLORS['danger']
+            text = "✗ HAI PERSO IL ROUND!"
+            explanation = self._get_lose_explanation(player_move, cpu_move)
+        else:
+            bg_color = COLORS['secondary']
+            text = "➜ PAREGGIO!"
+            explanation = "Stessa mossa - Si ripete!"
+        
+        # Banner con sfondo
+        banner_rect = pygame.Rect(0, center_y - 50, self.width, 100)
+        pygame.draw.rect(self.screen, bg_color, banner_rect)
+        
+        # Bordo luminoso
+        pygame.draw.rect(self.screen, COLORS['white'], banner_rect, width=2)
+        
+        # Testo risultato principale
+        self.draw_text(text, (self.width // 2, center_y - 20), 'large', COLORS['white'], center=True, shadow=True)
+        
+        # Spiegazione del risultato
+        self.draw_text(explanation, (self.width // 2, center_y + 25), 'small', COLORS['white'], center=True)
+    
+    def _get_win_explanation(self, player_move: str, cpu_move: str) -> str:
+        """Restituisce la spiegazione della vittoria."""
+        explanations = {
+            ('rock', 'scissors'): "Sasso spacca Forbice!",
+            ('scissors', 'paper'): "Forbice taglia Carta!",
+            ('paper', 'rock'): "Carta avvolge Sasso!"
+        }
+        return explanations.get((player_move, cpu_move), "")
+    
+    def _get_lose_explanation(self, player_move: str, cpu_move: str) -> str:
+        """Restituisce la spiegazione della sconfitta."""
+        explanations = {
+            ('scissors', 'rock'): "Sasso spacca Forbice!",
+            ('paper', 'scissors'): "Forbice taglia Carta!",
+            ('rock', 'paper'): "Carta avvolge Sasso!"
+        }
+        return explanations.get((player_move, cpu_move), "")
+    
     def draw_highscore_table(self,
                              scores: List[dict],
                              pos: Tuple[int, int],
@@ -356,6 +415,92 @@ class Renderer:
             self.draw_text(f"{i + 1}.", (x, y), 'small', color)
             self.draw_text(score.get('name', '???'), (x + 60, y), 'small', color)
             self.draw_text(str(score.get('score', 0)), (x + 200, y), 'small', color)
+            
+            y += row_height
+    
+    def draw_highscore_table_improved(self,
+                                      scores: List[dict],
+                                      pos: Tuple[int, int],
+                                      highlight_index: int = -1):
+        """
+        Disegna una tabella punteggi migliorata e centrata.
+        
+        Args:
+            scores: Lista di dizionari con punteggi
+            pos: Posizione centrale orizzontale e Y iniziale
+            highlight_index: Indice da evidenziare
+        """
+        center_x, start_y = pos
+        table_width = 400
+        row_height = 38
+        
+        # Sfondo tabella
+        table_height = min(len(scores), 10) * row_height + 50
+        table_rect = pygame.Rect(center_x - table_width // 2, start_y - 10, table_width, table_height)
+        pygame.draw.rect(self.screen, COLORS['dark_gray'], table_rect, border_radius=10)
+        pygame.draw.rect(self.screen, COLORS['primary'], table_rect, width=2, border_radius=10)
+        
+        # Intestazione
+        header_y = start_y + 10
+        self.draw_text("#", (center_x - 150, header_y), 'small', COLORS['secondary'], center=True)
+        self.draw_text("NOME", (center_x - 50, header_y), 'small', COLORS['secondary'], center=True)
+        self.draw_text("VITTORIE", (center_x + 80, header_y), 'small', COLORS['secondary'], center=True)
+        self.draw_text("DATA", (center_x + 170, header_y), 'tiny', COLORS['secondary'], center=True)
+        
+        # Linea separatrice
+        pygame.draw.line(
+            self.screen, COLORS['gray'],
+            (center_x - table_width // 2 + 10, header_y + 20),
+            (center_x + table_width // 2 - 10, header_y + 20), 1
+        )
+        
+        # Righe punteggi
+        y = header_y + 35
+        for i, score in enumerate(scores[:10]):
+            # Colore basato sulla posizione
+            if i == 0:
+                rank_color = (255, 215, 0)  # Oro
+                rank_text = "🥇"
+            elif i == 1:
+                rank_color = (192, 192, 192)  # Argento
+                rank_text = "🥈"
+            elif i == 2:
+                rank_color = (205, 127, 50)  # Bronzo
+                rank_text = "🥉"
+            else:
+                rank_color = COLORS['white']
+                rank_text = f"{i + 1}."
+            
+            # Evidenzia riga se richiesto
+            if i == highlight_index:
+                row_rect = pygame.Rect(center_x - table_width // 2 + 5, y - 8, table_width - 10, row_height - 2)
+                pygame.draw.rect(self.screen, COLORS['success'], row_rect, border_radius=5)
+            
+            # Posizione
+            self.draw_text(rank_text, (center_x - 150, y), 'small', rank_color, center=True)
+            
+            # Nome
+            name = score.get('name', '???')
+            self.draw_text(name, (center_x - 50, y), 'small', COLORS['white'], center=True)
+            
+            # Punteggio (vittorie consecutive)
+            score_val = score.get('score', 0)
+            self.draw_text(str(score_val), (center_x + 80, y), 'small', COLORS['success'], center=True)
+            
+            # Data (formattata)
+            date_str = score.get('date', '')
+            if date_str:
+                try:
+                    from datetime import datetime
+                    date_obj = datetime.fromisoformat(date_str)
+                    date_display = date_obj.strftime("%d/%m")
+                except:
+                    date_display = "-"
+            else:
+                date_display = "-"
+            self.draw_text(date_display, (center_x + 170, y), 'tiny', COLORS['gray'], center=True)
+            
+            y += row_height
             
             y += row_height
     
@@ -426,6 +571,7 @@ class Renderer:
             'ok': 'OK 👌',
             'point_up': 'Su 👆',
             'point_down': 'Giù 👇',
+            'thumbs_up': 'Conferma 👍',
             'none': 'Nessun gesto'
         }
         

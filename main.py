@@ -19,7 +19,8 @@ from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, FULLSCREEN,
     CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FLIP,
     GESTURE_HOLD_TIME, COUNTDOWN_TIME, ROUNDS_TO_WIN,
-    HIGHSCORE_FILE, MAX_HIGHSCORES, DEBUG_MODE, SHOW_FPS
+    HIGHSCORE_FILE, MAX_HIGHSCORES, DEBUG_MODE, SHOW_FPS,
+    GAME_SETTINGS
 )
 from gesture.hand_detector import HandDetector, CameraManager
 from game.game_logic import GameLogic, Move
@@ -173,9 +174,28 @@ class MorraCineseGame:
             if name:
                 self._save_highscore(name)
         
-        elif current_state in [GameState.HIGHSCORE, GameState.SETTINGS, GameState.GAME_OVER]:
+        elif current_state == GameState.SETTINGS:
+            if event.key == pygame.K_UP:
+                self.screen_manager.settings_up()
+            elif event.key == pygame.K_DOWN:
+                self.screen_manager.settings_down()
+            elif event.key == pygame.K_LEFT:
+                self.screen_manager.settings_change_value(-1)
+            elif event.key == pygame.K_RIGHT:
+                self.screen_manager.settings_change_value(1)
+            elif event.key == pygame.K_RETURN:
+                result = self.screen_manager.settings_select()
+                if result == 'back':
+                    self.state_manager.change_state(GameState.MENU)
+                elif result == 'reset_scores':
+                    self.highscore_manager.clear()
+        
+        elif current_state in [GameState.HIGHSCORE, GameState.GAME_OVER]:
             if event.key == pygame.K_RETURN:
-                self.state_manager.change_state(GameState.MENU)
+                if current_state == GameState.GAME_OVER:
+                    self._check_and_save_highscore()
+                else:
+                    self.state_manager.change_state(GameState.MENU)
     
     def _handle_menu_selection(self):
         """Gestisce la selezione del menu."""
@@ -199,7 +219,7 @@ class MorraCineseGame:
     def _update_camera(self):
         """Aggiorna il frame della camera."""
         if self.camera and self.camera.is_opened():
-            ret, frame = self.camera.read(flip=CAMERA_FLIP)
+            ret, frame = self.camera.read(flip=GAME_SETTINGS.camera_flip)
             if ret:
                 self.current_frame = frame
     
@@ -231,7 +251,7 @@ class MorraCineseGame:
                 return
             
             # Controlla se il gesto è confermato
-            hold_time = GESTURE_HOLD_TIME
+            hold_time = GAME_SETTINGS.gesture_hold_time
             confirmed = self.hand_detector.get_confirmed_gesture(
                 self.current_gesture, 
                 hold_time
@@ -258,7 +278,7 @@ class MorraCineseGame:
             elif gesture == 'point_down':
                 self.state_manager.menu_down()
                 self.hand_detector.reset_gesture_tracking()
-            elif gesture == 'ok':
+            elif gesture in ['ok', 'thumbs_up']:
                 self._handle_menu_selection()
                 self.hand_detector.reset_gesture_tracking()
         
@@ -274,14 +294,30 @@ class MorraCineseGame:
                 self._update_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
         
-        # Conferma in altre schermate
-        elif current_state in [GameState.HIGHSCORE, GameState.SETTINGS]:
-            if gesture == 'ok':
+        # Conferma in classifica
+        elif current_state == GameState.HIGHSCORE:
+            if gesture in ['ok', 'thumbs_up']:
                 self.state_manager.change_state(GameState.MENU)
                 self.hand_detector.reset_gesture_tracking()
         
+        # Impostazioni - navigazione completa
+        elif current_state == GameState.SETTINGS:
+            if gesture == 'point_up':
+                self.screen_manager.settings_up()
+                self.hand_detector.reset_gesture_tracking()
+            elif gesture == 'point_down':
+                self.screen_manager.settings_down()
+                self.hand_detector.reset_gesture_tracking()
+            elif gesture in ['ok', 'thumbs_up']:
+                result = self.screen_manager.settings_select()
+                if result == 'back':
+                    self.state_manager.change_state(GameState.MENU)
+                elif result == 'reset_scores':
+                    self.highscore_manager.clear()
+                self.hand_detector.reset_gesture_tracking()
+        
         elif current_state == GameState.GAME_OVER:
-            if gesture == 'ok':
+            if gesture in ['ok', 'thumbs_up']:
                 self._check_and_save_highscore()
                 self.hand_detector.reset_gesture_tracking()
     
@@ -289,7 +325,7 @@ class MorraCineseGame:
         """Processa la mossa del giocatore."""
         self.state_manager.change_state(
             GameState.COUNTDOWN,
-            duration=COUNTDOWN_TIME,
+            duration=GAME_SETTINGS.countdown_time,
             player_move=gesture
         )
     
@@ -367,7 +403,7 @@ class MorraCineseGame:
         )
         
         # Debug info
-        if DEBUG_MODE or SHOW_FPS:
+        if DEBUG_MODE or GAME_SETTINGS.show_fps:
             fps = self.clock.get_fps()
             self.renderer.draw_text(
                 f"FPS: {fps:.0f}",

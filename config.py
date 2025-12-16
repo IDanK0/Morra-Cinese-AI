@@ -54,6 +54,7 @@ GESTURES = {
     'ok': 'OK/Seleziona',
     'point_up': 'Su',
     'point_down': 'Giù',
+    'thumbs_up': 'Conferma',
     'none': 'Nessun gesto'
 }
 
@@ -107,3 +108,27 @@ MAX_HIGHSCORES = 10
 DEBUG_MODE = False
 SHOW_FPS = True
 SHOW_HAND_LANDMARKS = True
+
+# =====================
+# IMPOSTAZIONI RUNTIME (modificabili in-game)
+# =====================
+class GameSettings:
+    """Classe per gestire le impostazioni modificabili a runtime."""
+    
+    def __init__(self):
+        self.gesture_hold_time = GESTURE_HOLD_TIME
+        self.countdown_time = COUNTDOWN_TIME
+        self.camera_flip = CAMERA_FLIP
+        self.audio_enabled = AUDIO_ENABLED
+        self.show_fps = SHOW_FPS
+        
+    def reset_defaults(self):
+        """Ripristina le impostazioni predefinite."""
+        self.gesture_hold_time = GESTURE_HOLD_TIME
+        self.countdown_time = COUNTDOWN_TIME
+        self.camera_flip = CAMERA_FLIP
+        self.audio_enabled = AUDIO_ENABLED
+        self.show_fps = SHOW_FPS
+
+# Istanza globale delle impostazioni
+GAME_SETTINGS = GameSettings()

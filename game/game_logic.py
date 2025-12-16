@@ -51,6 +51,7 @@ class RoundResult(Enum):
 class GameLogic:
     """
     Classe che gestisce la logica del gioco Morra Cinese.
+    Modalità sopravvivenza: i round continuano finché l'utente non perde.
     """
     
     # Matrice delle vittorie: chiave = (mossa_giocatore, mossa_cpu)
@@ -68,7 +69,7 @@ class GameLogic:
         Inizializza la logica del gioco.
         
         Args:
-            rounds_to_win: Numero di round da vincere per vincere la partita
+            rounds_to_win: Non più usato - mantenuto per compatibilità
         """
         self.rounds_to_win = rounds_to_win
         self.reset()
@@ -130,19 +131,22 @@ class GameLogic:
         return cpu_move, result
     
     def is_game_over(self) -> bool:
-        """Verifica se la partita è finita."""
-        return self.player_score >= self.rounds_to_win or self.cpu_score >= self.rounds_to_win
+        """
+        Verifica se la partita è finita.
+        In modalità sopravvivenza, il gioco finisce solo quando la CPU vince un round.
+        """
+        # Il gioco finisce quando la CPU vince (l'utente perde)
+        return self.cpu_score >= 1
     
     def get_game_winner(self) -> Optional[str]:
         """
         Restituisce il vincitore della partita.
+        In modalità sopravvivenza, se il gioco è finito, ha sempre vinto la CPU.
         
         Returns:
-            'player', 'cpu' o None se la partita non è finita
+            'cpu' se il gioco è finito, None altrimenti
         """
-        if self.player_score >= self.rounds_to_win:
-            return 'player'
-        elif self.cpu_score >= self.rounds_to_win:
+        if self.cpu_score >= 1:
             return 'cpu'
         return None
     

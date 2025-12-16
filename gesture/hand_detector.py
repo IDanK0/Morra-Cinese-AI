@@ -176,6 +176,14 @@ class HandDetector:
             if index_tip.y > index_mcp.y:
                 return 'point_down'
         
+        # POLLICE SU (Conferma): Solo pollice esteso verso l'alto
+        if fingers[0] and not fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]:
+            thumb_tip = landmarks[4]
+            thumb_mcp = landmarks[2]
+            # Il pollice punta verso l'alto se la y della punta è minore del mcp
+            if thumb_tip.y < thumb_mcp.y:
+                return 'thumbs_up'
+        
         return 'none'
     
     def get_confirmed_gesture(self, gesture: str, hold_time: float = 0.5) -> Optional[str]:

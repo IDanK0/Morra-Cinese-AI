@@ -223,6 +223,13 @@ class MorraCineseGame:
                 self.current_frame.shape
             )
             
+            # Durante il countdown, aggiorna la mossa immediatamente senza richiedere conferma
+            if self.state_manager.current_state == GameState.COUNTDOWN:
+                if self.current_gesture in ['rock', 'paper', 'scissors']:
+                    self._update_player_move(self.current_gesture)
+                self.gesture_progress = 1.0  # Mostra progresso pieno
+                return
+            
             # Controlla se il gesto è confermato
             hold_time = GESTURE_HOLD_TIME
             confirmed = self.hand_detector.get_confirmed_gesture(
@@ -261,6 +268,12 @@ class MorraCineseGame:
                 self._process_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
         
+        # Countdown - permette di cambiare mossa
+        elif current_state == GameState.COUNTDOWN:
+            if gesture in ['rock', 'paper', 'scissors']:
+                self._update_player_move(gesture)
+                self.hand_detector.reset_gesture_tracking()
+        
         # Conferma in altre schermate
         elif current_state in [GameState.HIGHSCORE, GameState.SETTINGS]:
             if gesture == 'ok':
@@ -280,6 +293,10 @@ class MorraCineseGame:
             player_move=gesture
         )
     
+    def _update_player_move(self, gesture: str):
+        """Aggiorna la mossa del giocatore durante il countdown."""
+        self.state_manager.state_data['player_move'] = gesture
+
     def _update_game_logic(self):
         """Aggiorna la logica di gioco."""
         current_state = self.state_manager.current_state

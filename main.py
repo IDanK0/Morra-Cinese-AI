@@ -72,7 +72,7 @@ class MorraCineseGame:
             print(f"Camera inizializzata: {self.camera.width}x{self.camera.height}")
         except RuntimeError as e:
             print(f"Attenzione: Camera non disponibile - {e}")
-            print("Il gioco funzionerà con controlli da tastiera.")
+            print("Il gioco funzionera con controlli da tastiera.")
             self.camera = None
     
     def _init_hand_detector(self):
@@ -250,7 +250,7 @@ class MorraCineseGame:
                 self.gesture_progress = 1.0  # Mostra progresso pieno
                 return
             
-            # Controlla se il gesto è confermato
+            # Controlla se il gesto e confermato
             hold_time = GAME_SETTINGS.gesture_hold_time
             confirmed = self.hand_detector.get_confirmed_gesture(
                 self.current_gesture, 
@@ -270,16 +270,10 @@ class MorraCineseGame:
         """Gestisce un gesto confermato."""
         current_state = self.state_manager.current_state
         
-        # Navigazione nel menu
+        # Navigazione nel menu (solo gesture down mantenuta)
         if current_state == GameState.MENU:
-            if gesture == 'point_up':
-                self.state_manager.menu_up()
-                self.hand_detector.reset_gesture_tracking()
-            elif gesture == 'point_down':
+            if gesture == 'point_down':
                 self.state_manager.menu_down()
-                self.hand_detector.reset_gesture_tracking()
-            elif gesture in ['ok', 'thumbs_up']:
-                self._handle_menu_selection()
                 self.hand_detector.reset_gesture_tracking()
         
         # Gioco
@@ -294,32 +288,14 @@ class MorraCineseGame:
                 self._update_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
         
-        # Conferma in classifica
-        elif current_state == GameState.HIGHSCORE:
-            if gesture in ['ok', 'thumbs_up']:
-                self.state_manager.change_state(GameState.MENU)
-                self.hand_detector.reset_gesture_tracking()
-        
-        # Impostazioni - navigazione completa
+        # Impostazioni - mantieni solo navigation down via gesture
         elif current_state == GameState.SETTINGS:
-            if gesture == 'point_up':
-                self.screen_manager.settings_up()
-                self.hand_detector.reset_gesture_tracking()
-            elif gesture == 'point_down':
+            if gesture == 'point_down':
                 self.screen_manager.settings_down()
                 self.hand_detector.reset_gesture_tracking()
-            elif gesture in ['ok', 'thumbs_up']:
-                result = self.screen_manager.settings_select()
-                if result == 'back':
-                    self.state_manager.change_state(GameState.MENU)
-                elif result == 'reset_scores':
-                    self.highscore_manager.clear()
-                self.hand_detector.reset_gesture_tracking()
         
-        elif current_state == GameState.GAME_OVER:
-            if gesture in ['ok', 'thumbs_up']:
-                self._check_and_save_highscore()
-                self.hand_detector.reset_gesture_tracking()
+        # Altri stati non supportano piu conferme tramite gesto
+        # (selezione/ok/conferma rimangono via tastiera/INVIO)
     
     def _process_player_move(self, gesture: str):
         """Processa la mossa del giocatore."""

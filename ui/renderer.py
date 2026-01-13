@@ -210,7 +210,8 @@ class Renderer:
                        move: str,
                        pos: Tuple[int, int],
                        size: int = 100,
-                       color: Tuple[int, int, int] = None):
+                       color: Tuple[int, int, int] = None,
+                       background: bool = True):
         """
         Disegna l'icona di una mossa.
         
@@ -219,6 +220,7 @@ class Renderer:
             pos: Posizione centrale
             size: Dimensione dell'icona
             color: Colore dell'icona
+            background: Se True disegna il cerchio di sfondo (default True)
         """
         if color is None:
             color_map = {
@@ -228,15 +230,16 @@ class Renderer:
             }
             color = color_map.get(move, COLORS['white'])
         
-        # Cerchio di sfondo
-        pygame.draw.circle(self.screen, COLORS['dark_gray'], pos, size // 2)
-        pygame.draw.circle(self.screen, color, pos, size // 2, width=4)
+        # Cerchio di sfondo opzionale
+        if background:
+            pygame.draw.circle(self.screen, COLORS['dark_gray'], pos, size // 2)
+            pygame.draw.circle(self.screen, color, pos, size // 2, width=4)
         
-        # Emoji/simbolo
+        # Simbolo testuale della mossa
         symbols = {
-            'rock': '✊',
-            'paper': '✋',
-            'scissors': '✌️'
+            'rock': 'SASSO',
+            'paper': 'CARTA',
+            'scissors': 'FORBICE'
         }
         symbol = symbols.get(move, '?')
         self.draw_text(symbol, pos, 'large', COLORS['white'], center=True)
@@ -434,8 +437,8 @@ class Renderer:
         table_width = 400
         row_height = 38
         
-        # Sfondo tabella
-        table_height = min(len(scores), 10) * row_height + 50
+        # Sfondo tabella (altezza dinamica in base al numero di righe)
+        table_height = max(1, len(scores)) * row_height + 50
         table_rect = pygame.Rect(center_x - table_width // 2, start_y - 10, table_width, table_height)
         pygame.draw.rect(self.screen, COLORS['dark_gray'], table_rect, border_radius=10)
         pygame.draw.rect(self.screen, COLORS['primary'], table_rect, width=2, border_radius=10)
@@ -456,17 +459,17 @@ class Renderer:
         
         # Righe punteggi
         y = header_y + 35
-        for i, score in enumerate(scores[:10]):
+        for i, score in enumerate(scores):
             # Colore basato sulla posizione
             if i == 0:
                 rank_color = (255, 215, 0)  # Oro
-                rank_text = "🥇"
+                rank_text = "1."
             elif i == 1:
                 rank_color = (192, 192, 192)  # Argento
-                rank_text = "🥈"
+                rank_text = "2."
             elif i == 2:
                 rank_color = (205, 127, 50)  # Bronzo
-                rank_text = "🥉"
+                rank_text = "3."
             else:
                 rank_color = COLORS['white']
                 rank_text = f"{i + 1}."
@@ -499,8 +502,6 @@ class Renderer:
             else:
                 date_display = "-"
             self.draw_text(date_display, (center_x + 170, y), 'tiny', COLORS['gray'], center=True)
-            
-            y += row_height
             
             y += row_height
     
@@ -565,13 +566,10 @@ class Renderer:
             pos: Posizione
         """
         gesture_names = {
-            'rock': 'Sasso ✊',
-            'paper': 'Carta ✋',
-            'scissors': 'Forbice ✌️',
-            'ok': 'OK 👌',
-            'point_up': 'Su 👆',
-            'point_down': 'Giù 👇',
-            'thumbs_up': 'Conferma 👍',
+            'rock': 'Sasso (S)',
+            'paper': 'Carta (C)',
+            'scissors': 'Forbice (F)',
+            'point_down': 'Giu',
             'none': 'Nessun gesto'
         }
         

@@ -140,7 +140,10 @@ class HandDetector:
         # === GESTI DI GIOCO ===
         
         # SASSO: Tutte le dita chiuse (pugno)
-        if extended_count <= 1:
+        # Now require zero extended fingers so that a single index finger
+        # can be recognized as point_up/point_down instead of being
+        # misclassified as 'rock'.
+        if extended_count == 0:
             return 'rock'
         
         # CARTA: Tutte le dita estese (mano aperta)
@@ -153,36 +156,12 @@ class HandDetector:
         
         # === GESTI DI NAVIGAZIONE ===
         
-        # OK: Pollice e indice che si toccano
-        thumb_tip = landmarks[4]
-        index_tip = landmarks[8]
-        distance = np.sqrt((thumb_tip.x - index_tip.x)**2 + 
-                          (thumb_tip.y - index_tip.y)**2)
-        if distance < 0.05 and not fingers[2] and not fingers[3] and not fingers[4]:
-            return 'ok'
-        
-        # PUNTA SU: Solo indice esteso
-        if fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]:
-            # Controlla che l'indice punti verso l'alto
-            index_tip = landmarks[8]
-            index_mcp = landmarks[5]
-            if index_tip.y < index_mcp.y:
-                return 'point_up'
-        
-        # PUNTA GIÙ: Solo indice esteso verso il basso
+        # PUNTA GIU: Solo indice esteso verso il basso (usato per navigazione down)
         if fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]:
             index_tip = landmarks[8]
             index_mcp = landmarks[5]
             if index_tip.y > index_mcp.y:
                 return 'point_down'
-        
-        # POLLICE SU (Conferma): Solo pollice esteso verso l'alto
-        if fingers[0] and not fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]:
-            thumb_tip = landmarks[4]
-            thumb_mcp = landmarks[2]
-            # Il pollice punta verso l'alto se la y della punta è minore del mcp
-            if thumb_tip.y < thumb_mcp.y:
-                return 'thumbs_up'
         
         return 'none'
     

@@ -53,7 +53,7 @@ class ScreenManager:
             {'key': 'camera_flip', 'label': 'Specchia camera', 'values': [True, False], 'unit': ''},
             {'key': 'show_fps', 'label': 'Mostra FPS', 'values': [True, False], 'unit': ''},
             {'key': 'reset_scores', 'label': 'Cancella classifica', 'values': ['action'], 'unit': ''},
-            {'key': 'back', 'label': '← Torna al menu', 'values': ['action'], 'unit': ''},
+            {'key': 'back', 'label': '<- Torna al menu', 'values': ['action'], 'unit': ''},
         ]
     
     def update(self, dt: float):
@@ -144,7 +144,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "👆 Su/Giù per navigare | 👌 OK o 👍 Conferma per selezionare",
+            "Giu per scorrere | INVIO per selezionare",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50),
             'small',
             COLORS['gray'],
@@ -288,7 +288,8 @@ class ScreenManager:
         self.renderer.draw_move_icon(
             player_move,
             (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
-            100
+            100,
+            background=False
         )
         
         # Nome mossa giocatore
@@ -328,7 +329,8 @@ class ScreenManager:
         self.renderer.draw_move_icon(
             cpu_move,
             (3 * SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
-            100
+            100,
+            background=False
         )
         
         # Nome mossa CPU
@@ -354,7 +356,7 @@ class ScreenManager:
         # In modalità sopravvivenza, il game over significa sempre sconfitta
         bg_color = COLORS['danger']
         title = "GAME OVER"
-        subtitle = "Hai perso! La tua serie è terminata."
+        subtitle = "Hai perso! La tua serie e terminata."
         
         # Overlay semi-trasparente
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -382,7 +384,7 @@ class ScreenManager:
         
         # Punteggio (vittorie consecutive)
         self.renderer.draw_text(
-            f"🏆 VITTORIE CONSECUTIVE: {player_score}",
+            f"VITTORIE CONSECUTIVE: {player_score}",
             (SCREEN_WIDTH // 2, 200),
             'large',
             COLORS['secondary'],
@@ -399,7 +401,7 @@ class ScreenManager:
         pygame.draw.rect(self.renderer.screen, COLORS['primary'], stats_rect, width=2, border_radius=15)
         
         self.renderer.draw_text(
-            "📊 STATISTICHE",
+            "STATISTICHE",
             (SCREEN_WIDTH // 2, stats_y + 10),
             'medium',
             COLORS['primary'],
@@ -434,7 +436,7 @@ class ScreenManager:
         # Messaggio per highscore
         if self.highscore.is_high_score(player_score):
             self.renderer.draw_text(
-                "🎉 NUOVO RECORD! Entrerai in classifica!",
+                "NUOVO RECORD! Entrerai in classifica!",
                 (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 120),
                 'medium',
                 COLORS['success'],
@@ -443,7 +445,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "👌 OK o 👍 Conferma per continuare",
+            "Premi INVIO per continuare",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
             'medium',
             COLORS['white'],
@@ -453,7 +455,7 @@ class ScreenManager:
     def _render_highscore(self, frame, gesture: str):
         """Renderizza la classifica."""
         self.renderer.draw_text(
-            "🏆 CLASSIFICA",
+            "CLASSIFICA",
             (SCREEN_WIDTH // 2, 50),
             'title',
             COLORS['primary'],
@@ -469,8 +471,8 @@ class ScreenManager:
             center=True
         )
         
-        # Tabella punteggi
-        scores = self.highscore.get_scores(10)
+        # Tabella punteggi (numero dinamico di righe basato sui punteggi presenti)
+        scores = self.highscore.get_scores()
         if scores:
             self.renderer.draw_highscore_table_improved(
                 scores,
@@ -514,7 +516,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "👌 OK o 👍 Conferma per tornare al menu",
+            "Premi INVIO per tornare al menu",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
             'small',
             COLORS['gray'],
@@ -568,7 +570,7 @@ class ScreenManager:
     def _render_settings(self, frame, gesture: str):
         """Renderizza le impostazioni con menu navigabile."""
         self.renderer.draw_text(
-            "⚙️ IMPOSTAZIONI",
+            "IMPOSTAZIONI",
             (SCREEN_WIDTH // 2, 50),
             'title',
             COLORS['primary'],
@@ -605,7 +607,7 @@ class ScreenManager:
                 pass  # Nessun valore per il tasto indietro
             elif option['key'] == 'reset_scores':
                 self.renderer.draw_text(
-                    "👌 Premi OK",
+                    "Premi INVIO",
                     (SCREEN_WIDTH // 2 + 150, y),
                     'small',
                     COLORS['danger'] if selected else COLORS['gray'],
@@ -614,7 +616,7 @@ class ScreenManager:
             else:
                 current_value = getattr(GAME_SETTINGS, option['key'])
                 if isinstance(current_value, bool):
-                    value_text = "Sì" if current_value else "No"
+                    value_text = "Si" if current_value else "No"
                     value_color = COLORS['success'] if current_value else COLORS['danger']
                 else:
                     value_text = f"{current_value}{option['unit']}"
@@ -622,8 +624,8 @@ class ScreenManager:
                 
                 # Frecce per navigazione valori
                 if selected:
-                    self.renderer.draw_text("◀", (SCREEN_WIDTH // 2 + 80, y), 'small', COLORS['white'], center=True)
-                    self.renderer.draw_text("▶", (SCREEN_WIDTH // 2 + 220, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text("<", (SCREEN_WIDTH // 2 + 80, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text(">", (SCREEN_WIDTH // 2 + 220, y), 'small', COLORS['white'], center=True)
                 
                 self.renderer.draw_text(
                     value_text,
@@ -652,7 +654,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "👆👇 Su/Giù per navigare | ◀▶ per modificare | 👌 OK per confermare",
+            "Giu per scorrere | < > per modificare | INVIO per confermare",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
             'tiny',
             COLORS['gray'],

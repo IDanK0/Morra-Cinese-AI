@@ -1,14 +1,14 @@
-# 🎮 Morra Cinese Portatile Interattiva
+# Morra Cinese Portatile Interattiva
 
 Un gioco di Morra Cinese (Sasso, Carta, Forbice) con riconoscimento dei gesti della mano tramite webcam.
 
-## 📋 Requisiti
+## Requisiti
 
 - Python 3.8+
 - Webcam
 - Sistema operativo: Windows, Linux (Raspberry Pi), macOS
 
-## 🚀 Installazione
+## Installazione
 
 ```bash
 # Crea un ambiente virtuale (opzionale ma consigliato)
@@ -20,30 +20,29 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-## ▶️ Avvio del Gioco
+## Avvio del Gioco
 
 ```bash
 python main.py
 ```
 
-## 🎯 Come Giocare
+## Come Giocare
 
 ### Gesti Riconosciuti
-- ✊ **Sasso (Rock)**: Pugno chiuso
-- ✋ **Carta (Paper)**: Mano aperta con tutte le dita estese
-- ✌️ **Forbice (Scissors)**: Due dita estese (indice e medio)
+- Sasso (Rock): Pugno chiuso
+- Carta (Paper): Mano aperta con tutte le dita estese
+- Forbice (Scissors): Due dita estese (indice e medio)
 
 ### Navigazione Menu
-- 👌 **OK/Seleziona**: Pollice e indice che si toccano
-- 👆 **Su**: Indice puntato verso l'alto
-- 👇 **Giù**: Mano che scende
+- Seleziona: Premi INVIO
+- Giu: Mano che scende
 
 ### Regole del Gioco
 - Sasso batte Forbice
 - Forbice batte Carta
 - Carta batte Sasso
 
-## 📁 Struttura del Progetto
+## Struttura del Progetto
 
 ```
 Giochino/
@@ -66,7 +65,7 @@ Giochino/
 └── README.md               # Documentazione
 ```
 
-## ⚙️ Configurazione
+## Configurazione
 
 Modifica `config.py` per personalizzare:
 - Risoluzione schermo
@@ -74,7 +73,7 @@ Modifica `config.py` per personalizzare:
 - Volume audio
 - Tema grafico
 
-## 🔧 Per Raspberry Pi
+## Per Raspberry Pi
 
 Su Raspberry Pi, potrebbe essere necessario:
 
@@ -85,6 +84,6 @@ sudo apt-get install -y libcamera-dev python3-libcamera
 sudo apt-get install -y libgl1-mesa-glx libglib2.0-0
 ```
 
-## 📜 Licenza
+## Licenza
 
 Progetto educativo - Uso libero per scopi didattici.

@@ -51,10 +51,7 @@ GESTURES = {
     'rock': 'Sasso',
     'paper': 'Carta',
     'scissors': 'Forbice',
-    'ok': 'OK/Seleziona',
-    'point_up': 'Su',
-    'point_down': 'Giù',
-    'thumbs_up': 'Conferma',
+    'point_down': 'Giu',
     'none': 'Nessun gesto'
 }
 

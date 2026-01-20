@@ -107,7 +107,7 @@ class HandDetector:
         thumb_ip = landmarks[3]
         thumb_mcp = landmarks[2]
         
-        # Il pollice è esteso se la punta è più lontana dal palmo
+        # Il pollice e' esteso se la punta e' piu' lontana dal palmo
         thumb_extended = abs(thumb_tip.x - thumb_mcp.x) > abs(thumb_ip.x - thumb_mcp.x)
         fingers.append(thumb_extended)
         
@@ -115,7 +115,7 @@ class HandDetector:
         for tip_idx, pip_idx in zip(self.finger_tips[1:], self.finger_pips[1:]):
             tip = landmarks[tip_idx]
             pip = landmarks[pip_idx]
-            # Y più basso = più in alto nel frame
+            # Y piu' basso = piu' in alto nel frame
             fingers.append(tip.y < pip.y)
         
         return fingers
@@ -284,5 +284,5 @@ class CameraManager:
         self.cap.release()
     
     def is_opened(self) -> bool:
-        """Verifica se la camera è aperta."""
+        """Verifica se la camera e' aperta."""
         return self.cap.isOpened()

@@ -42,6 +42,11 @@ COLORS = {
     'rock': (139, 90, 43),        # Marrone roccia
     'paper': (245, 245, 220),     # Beige carta
     'scissors': (192, 192, 192),  # Argento forbici
+    'gold': (255, 215, 0),        # Oro (primo posto)
+    'silver': (192, 192, 192),    # Argento (secondo posto)
+    'bronze': (205, 127, 50),     # Bronzo (terzo posto)
+    'glow_blue': (173, 216, 230), # Light blue per glow
+    'dark_blue': (10, 10, 20),    # Dark blue sfondo
 }
 
 # =====================

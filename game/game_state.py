@@ -86,7 +86,7 @@ class StateManager:
         return time.time() - self.state_start_time
     
     def is_state_timed_out(self) -> bool:
-        """Verifica se lo stato temporizzato è scaduto."""
+        """Verifica se lo stato temporizzato e' scaduto."""
         if self.state_duration <= 0:
             return False
         return self.get_state_time() >= self.state_duration
@@ -112,7 +112,7 @@ class StateManager:
         self.menu_selection = (self.menu_selection - 1) % len(self.menu_items)
     
     def menu_down(self):
-        """Naviga giù nel menu."""
+        """Naviga giu' nel menu."""
         self.menu_selection = (self.menu_selection + 1) % len(self.menu_items)
     
     def get_selected_menu_item(self) -> str:

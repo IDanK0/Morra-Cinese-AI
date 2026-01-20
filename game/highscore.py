@@ -31,7 +31,7 @@ class HighScoreManager:
         Carica i punteggi dal file.
         
         Returns:
-            True se il caricamento è riuscito
+            True se il caricamento e' riuscito
         """
         try:
             if os.path.exists(self.filename):
@@ -50,7 +50,7 @@ class HighScoreManager:
         Salva i punteggi su file.
         
         Returns:
-            True se il salvataggio è riuscito
+            True se il salvataggio e' riuscito
         """
         try:
             with open(self.filename, 'w', encoding='utf-8') as f:
@@ -133,7 +133,7 @@ class HighScoreManager:
             score: Punteggio da verificare
             
         Returns:
-            True se il punteggio è abbastanza alto per la classifica
+            True se il punteggio e' abbastanza alto per la classifica
         """
         if len(self.scores) < self.max_entries:
             return True

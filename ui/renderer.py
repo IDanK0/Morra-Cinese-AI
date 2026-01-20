@@ -7,8 +7,39 @@ import numpy as np
 import cv2
 from typing import Tuple, Optional, List
 import math
+import random
 
 from config import COLORS, SCREEN_WIDTH, SCREEN_HEIGHT
+
+
+class Particle:
+    """Classe per gestire particelle di effetto."""
+    def __init__(self, x: float, y: float, vx: float, vy: float, 
+                 lifetime: float, color: Tuple[int, int, int], size: int = 4):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.lifetime = lifetime
+        self.max_lifetime = lifetime
+        self.color = color
+        self.size = size
+        self.gravity = 0.2
+    
+    def update(self, dt: float):
+        """Aggiorna la particella."""
+        self.x += self.vx * dt
+        self.y += self.vy * dt
+        self.vy += self.gravity
+        self.lifetime -= dt
+    
+    def is_alive(self) -> bool:
+        """Verifica se la particella e' ancora viva."""
+        return self.lifetime > 0
+    
+    def get_alpha(self) -> float:
+        """Restituisce l'alpha (opacita') basato sulla vita rimanente."""
+        return max(0, self.lifetime / self.max_lifetime)
 
 
 class Renderer:
@@ -39,6 +70,13 @@ class Renderer:
         
         # Cache per superfici pre-renderizzate
         self._cache = {}
+        
+        # Sistema di particelle
+        self.particles: List[Particle] = []
+        
+        # Effetti schermo (transizioni, flash, ecc.)
+        self.screen_overlay_alpha = 0
+        self.screen_overlay_color = (0, 0, 0)
     
     def clear(self, color: Tuple[int, int, int] = None):
         """Pulisce lo schermo."""
@@ -341,15 +379,15 @@ class Renderer:
         # Colore e testo basati sul risultato
         if result == 'player':
             bg_color = COLORS['success']
-            text = "✓ HAI VINTO IL ROUND!"
+            text = "[OK] HAI VINTO IL ROUND!"
             explanation = self._get_win_explanation(player_move, cpu_move)
         elif result == 'cpu':
             bg_color = COLORS['danger']
-            text = "✗ HAI PERSO IL ROUND!"
+            text = "[NO] HAI PERSO IL ROUND!"
             explanation = self._get_lose_explanation(player_move, cpu_move)
         else:
             bg_color = COLORS['secondary']
-            text = "➜ PAREGGIO!"
+            text = "> PAREGGIO!"
             explanation = "Stessa mossa - Si ripete!"
         
         # Banner con sfondo
@@ -577,3 +615,280 @@ class Renderer:
         color = COLORS['success'] if confidence > 0.7 else COLORS['secondary']
         
         self.draw_text(text, pos, 'small', color, center=True)
+    
+    def emit_particles(self, 
+                      x: float, y: float, 
+                      count: int = 10,
+                      velocity_range: float = 5.0,
+                      color: Tuple[int, int, int] = None,
+                      lifetime: float = 1.0):
+        """
+        Emette particelle da una posizione.
+        
+        Args:
+            x: Posizione X
+            y: Posizione Y
+            count: Numero di particelle
+            velocity_range: Intervallo di velocita'
+            color: Colore delle particelle
+            lifetime: Durata della vita
+        """
+        if color is None:
+            color = COLORS['primary']
+        
+        for _ in range(count):
+            angle = random.uniform(0, 2 * math.pi)
+            velocity = random.uniform(0, velocity_range)
+            vx = velocity * math.cos(angle)
+            vy = velocity * math.sin(angle)
+            
+            particle = Particle(x, y, vx, vy, lifetime, color)
+            self.particles.append(particle)
+    
+    def update_particles(self, dt: float):
+        """Aggiorna tutte le particelle."""
+        for particle in self.particles[:]:
+            particle.update(dt)
+            if not particle.is_alive():
+                self.particles.remove(particle)
+    
+    def draw_particles(self):
+        """Disegna tutte le particelle attive."""
+        for particle in self.particles:
+            if particle.is_alive():
+                # Calcola il colore con alpha
+                alpha = particle.get_alpha()
+                color = tuple(int(c * alpha) for c in particle.color)
+                
+                # Disegna cerchio con dimensione che diminuisce
+                size = max(1, int(particle.size * alpha))
+                pygame.draw.circle(self.screen, color, 
+                                 (int(particle.x), int(particle.y)), size)
+    
+    def draw_glowing_button(self,
+                           text: str,
+                           pos: Tuple[int, int],
+                           size: Tuple[int, int] = (200, 50),
+                           selected: bool = False,
+                           glow_intensity: float = 0.0) -> pygame.Rect:
+        """
+        Disegna un pulsante con effetto glow.
+        
+        Args:
+            text: Testo del pulsante
+            pos: Posizione centrale
+            size: Dimensioni
+            selected: Se evidenziato
+            glow_intensity: Intensita' del glow (0-1)
+        """
+        if selected:
+            color = COLORS['primary']
+        else:
+            color = COLORS['dark_gray']
+        
+        rect = pygame.Rect(0, 0, size[0], size[1])
+        rect.center = pos
+        
+        # Effetto glow
+        if glow_intensity > 0:
+            glow_surf = pygame.Surface((size[0] + 20, size[1] + 20), pygame.SRCALPHA)
+            glow_color = (*COLORS['primary'], int(100 * glow_intensity))
+            pygame.draw.rect(glow_surf, glow_color, glow_surf.get_rect(), border_radius=10)
+            glow_rect = glow_surf.get_rect(center=pos)
+            self.screen.blit(glow_surf, glow_rect)
+        
+        # Sfondo
+        pygame.draw.rect(self.screen, color, rect, border_radius=10)
+        
+        # Bordo
+        border_color = COLORS['white'] if selected else COLORS['gray']
+        pygame.draw.rect(self.screen, border_color, rect, width=3, border_radius=10)
+        
+        # Testo
+        self.draw_text(text, pos, 'medium', COLORS['white'], center=True)
+        
+        return rect
+    
+    def draw_move_icon_enhanced(self,
+                               move: str,
+                               pos: Tuple[int, int],
+                               size: int = 100,
+                               color: Tuple[int, int, int] = None,
+                               background: bool = True,
+                               scale: float = 1.0):
+        """
+        Disegna l'icona di una mossa con rendering migliorato.
+        
+        Args:
+            move: 'rock', 'paper', o 'scissors'
+            pos: Posizione centrale
+            size: Dimensione dell'icona
+            color: Colore dell'icona
+            background: Se True disegna il cerchio di sfondo
+            scale: Fattore di scala per animazioni
+        """
+        if color is None:
+            color_map = {
+                'rock': COLORS['rock'],
+                'paper': COLORS['paper'],
+                'scissors': COLORS['scissors']
+            }
+            color = color_map.get(move, COLORS['white'])
+        
+        scaled_size = int(size * scale)
+        
+        # Cerchio di sfondo opzionale
+        if background:
+            # Ombra
+            pygame.draw.circle(self.screen, (0, 0, 0), pos, scaled_size // 2 + 3, width=0)
+            pygame.draw.circle(self.screen, COLORS['dark_gray'], pos, scaled_size // 2)
+            pygame.draw.circle(self.screen, color, pos, scaled_size // 2, width=4)
+        
+        # Simbolo con emoji-like
+        symbols = {
+            'rock': '[R]',
+            'paper': '[P]',
+            'scissors': '[S]'
+        }
+        
+        # Fallback a testo se emoji non supportate
+        if move == 'rock':
+            self._draw_rock(pos, scaled_size // 2 - 10, COLORS['white'])
+        elif move == 'paper':
+            self._draw_paper(pos, scaled_size // 2 - 10, COLORS['white'])
+        elif move == 'scissors':
+            self._draw_scissors(pos, scaled_size // 2 - 10, COLORS['white'])
+    
+    def _draw_rock(self, pos: Tuple[int, int], size: int, color: Tuple[int, int, int]):
+        """Disegna l'icona di un sasso."""
+        # Forma approssimativa irregolare
+        points = [
+            (pos[0] - size//2, pos[1] - size//3),
+            (pos[0] - size//3, pos[1] - size//2),
+            (pos[0] + size//2, pos[1] - size//3),
+            (pos[0] + size//2, pos[1] + size//2),
+            (pos[0] - size//2, pos[1] + size//3),
+        ]
+        if len(points) >= 3:
+            pygame.draw.polygon(self.screen, color, points)
+    
+    def _draw_paper(self, pos: Tuple[int, int], size: int, color: Tuple[int, int, int]):
+        """Disegna l'icona di una carta."""
+        rect = pygame.Rect(pos[0] - size//2, pos[1] - size//2, size, size * 1.3)
+        pygame.draw.rect(self.screen, color, rect)
+        # Linee di testo sulla carta
+        for i in range(3):
+            y = pos[1] - size//3 + i * size//3
+            pygame.draw.line(self.screen, COLORS['background'], 
+                           (pos[0] - size//3, y), (pos[0] + size//3, y), 2)
+    
+    def _draw_scissors(self, pos: Tuple[int, int], size: int, color: Tuple[int, int, int]):
+        """Disegna l'icona di forbici."""
+        # Due cerchi per i buchi
+        circle_offset = size // 4
+        pygame.draw.circle(self.screen, COLORS['background'], 
+                         (pos[0] - circle_offset, pos[1] - circle_offset), 3)
+        pygame.draw.circle(self.screen, COLORS['background'], 
+                         (pos[0] + circle_offset, pos[1] + circle_offset), 3)
+        # Due linee a forma di X
+        pygame.draw.line(self.screen, color,
+                        (pos[0] - size//2, pos[1] - size//2),
+                        (pos[0] + size//2, pos[1] + size//2), 4)
+        pygame.draw.line(self.screen, color,
+                        (pos[0] + size//2, pos[1] - size//2),
+                        (pos[0] - size//2, pos[1] + size//2), 4)
+    
+    def draw_round_badge(self,
+                        round_num: int,
+                        pos: Tuple[int, int],
+                        color: Tuple[int, int, int] = None):
+        """
+        Disegna un badge esagonale con il numero del round.
+        
+        Args:
+            round_num: Numero del round
+            pos: Posizione centrale
+            color: Colore del badge
+        """
+        if color is None:
+            color = COLORS['primary']
+        
+        radius = 40
+        
+        # Esagono
+        angles = [i * math.pi / 3 for i in range(6)]
+        points = [(pos[0] + radius * math.cos(a), pos[1] + radius * math.sin(a)) 
+                 for a in angles]
+        pygame.draw.polygon(self.screen, color, points)
+        pygame.draw.polygon(self.screen, COLORS['white'], points, width=2)
+        
+        # Testo
+        self.draw_text(str(round_num), pos, 'large', COLORS['white'], center=True)
+    
+    def draw_gradient_rect(self,
+                          rect: pygame.Rect,
+                          color_top: Tuple[int, int, int],
+                          color_bottom: Tuple[int, int, int]):
+        """
+        Disegna un rettangolo con gradiente verticale.
+        
+        Args:
+            rect: Rettangolo da riempire
+            color_top: Colore in alto
+            color_bottom: Colore in basso
+        """
+        for y in range(rect.height):
+            ratio = y / max(1, rect.height)
+            r = int(color_top[0] * (1 - ratio) + color_bottom[0] * ratio)
+            g = int(color_top[1] * (1 - ratio) + color_bottom[1] * ratio)
+            b = int(color_top[2] * (1 - ratio) + color_bottom[2] * ratio)
+            pygame.draw.line(self.screen, (r, g, b), 
+                           (rect.left, rect.top + y), 
+                           (rect.right, rect.top + y))
+    
+    def draw_pulse_circle(self,
+                         pos: Tuple[int, int],
+                         radius: int,
+                         color: Tuple[int, int, int],
+                         time: float):
+        """
+        Disegna un cerchio con effetto pulsante.
+        
+        Args:
+            pos: Posizione centrale
+            radius: Raggio base
+            color: Colore
+            time: Tempo per l'animazione
+        """
+        pulsation = 1.0 + 0.3 * math.sin(time * 6)
+        actual_radius = int(radius * pulsation)
+        pygame.draw.circle(self.screen, color, pos, actual_radius)
+        
+        # Bordo esterno che svanisce
+        fade_radius = int(radius * (1.5 + 0.2 * math.sin(time * 6)))
+        fade_color = tuple(int(c * 0.3) for c in color)
+        pygame.draw.circle(self.screen, fade_color, pos, fade_radius, width=2)
+    
+    def apply_screen_overlay(self, dt: float):
+        """Applica l'overlay dello schermo e aggiorna l'alpha."""
+        if self.screen_overlay_alpha > 0:
+            overlay = pygame.Surface((self.width, self.height))
+            overlay.fill(self.screen_overlay_color)
+            overlay.set_alpha(int(self.screen_overlay_alpha))
+            self.screen.blit(overlay, (0, 0))
+            # Fade out graduale
+            self.screen_overlay_alpha = max(0, self.screen_overlay_alpha - 2.0 * dt)
+    
+    def flash_screen(self, color: Tuple[int, int, int] = None, duration: float = 0.2):
+        """
+        Fa lampeggiare lo schermo.
+        
+        Args:
+            color: Colore del flash
+            duration: Durata del flash
+        """
+        if color is None:
+            color = COLORS['white']
+        self.screen_overlay_color = color
+        self.screen_overlay_alpha = 255
+

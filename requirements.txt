@@ -1,7 +1,13 @@
 # Morra Cinese - Requisiti Software
-# Per Raspberry Pi e Windows
+# Per Windows, Linux e Raspberry Pi
+# Python >= 3.8
 
-opencv-python>=4.8.0
-mediapipe>=0.10.0
-pygame>=2.5.0
-numpy>=1.24.0
+# Visione Artificiale e Riconoscimento Gesti
+opencv-python>=4.8.0          # Elaborazione video e cattura webcam
+mediapipe>=0.10.0              # Rilevamento e tracking delle mani
+
+# Interfaccia Grafica
+pygame>=2.5.0                  # Framework per il rendering grafico
+
+# Calcolo Numerico
+numpy>=1.24.0                  # Operazioni array e calcoli numerici

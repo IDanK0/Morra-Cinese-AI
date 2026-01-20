@@ -3,11 +3,11 @@
 # Python >= 3.8
 
 # Visione Artificiale e Riconoscimento Gesti
-opencv-python>=4.8.0          # Elaborazione video e cattura webcam
-mediapipe>=0.10.0              # Rilevamento e tracking delle mani
+opencv-python-headless==4.12.0.88  # Elaborazione video e cattura webcam
+mediapipe==0.10.14                  # Rilevamento e tracking delle mani
 
 # Interfaccia Grafica
-pygame>=2.5.0                  # Framework per il rendering grafico
+pygame==2.6.1                       # Framework per il rendering grafico
 
 # Calcolo Numerico
-numpy>=1.24.0                  # Operazioni array e calcoli numerici
+numpy==2.2.6                        # Operazioni array e calcoli numerici

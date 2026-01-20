@@ -2,7 +2,8 @@
 
 Un gioco di Morra Cinese (Sasso-Carta-Forbice) completamente **interattivo con riconoscimento gestuale della mano in tempo reale**. Gioca contro l'IA muovendo la tua mano davanti alla webcam!
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.12.0-blue)
+![Pip](https://img.shields.io/badge/pip-23.2.1-yellow)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20Raspberry%20Pi-orange)
 
@@ -49,8 +50,8 @@ Un gioco di Morra Cinese (Sasso-Carta-Forbice) completamente **interattivo con r
 - **Display**: 800x600 minimo (consigliato 1920x1080)
 
 ### Software
-- **Python 3.8 o superiore**
-- **pip** per la gestione pacchetti
+- **Python 3.12.0** (versione consigliata per compatibilità ottimale)
+- **pip 23.2.1** (o superiore) per la gestione pacchetti
 
 ### Sistema Operativo Supportati
 ✅ Windows 10/11  

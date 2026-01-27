@@ -20,7 +20,7 @@ from config import (
     CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FLIP,
     GESTURE_HOLD_TIME, COUNTDOWN_TIME, ROUNDS_TO_WIN,
     HIGHSCORE_FILE, MAX_HIGHSCORES, DEBUG_MODE, SHOW_FPS,
-    GAME_SETTINGS
+    GAME_SETTINGS, GameMode, TimedDifficulty, CPU_MOVE_TIMER
 )
 from gesture.hand_detector import HandDetector, CameraManager
 from game.game_logic import GameLogic, Move
@@ -160,6 +160,20 @@ class MorraCineseGame:
             elif event.key == pygame.K_RETURN:
                 self._handle_menu_selection()
         
+        elif current_state == GameState.MODE_SELECT:
+            if event.key == pygame.K_UP:
+                self.screen_manager.mode_up()
+            elif event.key == pygame.K_DOWN:
+                self.screen_manager.mode_down()
+            elif event.key == pygame.K_LEFT:
+                self.screen_manager.difficulty_left()
+            elif event.key == pygame.K_RIGHT:
+                self.screen_manager.difficulty_right()
+            elif event.key == pygame.K_RETURN:
+                self._start_game_with_mode()
+            elif event.key == pygame.K_ESCAPE:
+                self.state_manager.change_state(GameState.MENU)
+        
         elif current_state == GameState.PLAYING:
             # Controlli da tastiera per giocare (debug/backup)
             if event.key == pygame.K_1:  # Sasso
@@ -168,6 +182,15 @@ class MorraCineseGame:
                 self._process_player_move('paper')
             elif event.key == pygame.K_3:  # Forbice
                 self._process_player_move('scissors')
+        
+        elif current_state == GameState.TIMED_PLAYER_TURN:
+            # Controlli da tastiera per modalità a tempo
+            if event.key == pygame.K_1:  # Sasso
+                self._process_timed_player_move('rock')
+            elif event.key == pygame.K_2:  # Carta
+                self._process_timed_player_move('paper')
+            elif event.key == pygame.K_3:  # Forbice
+                self._process_timed_player_move('scissors')
         
         elif current_state == GameState.ENTER_NAME:
             name = self.screen_manager.handle_name_input(event)
@@ -202,7 +225,8 @@ class MorraCineseGame:
         selection = self.state_manager.get_selected_menu_item()
         
         if selection == 'play':
-            self._start_new_game()
+            # Apre la schermata di selezione modalità
+            self.state_manager.change_state(GameState.MODE_SELECT)
         elif selection == 'highscore':
             self.state_manager.change_state(GameState.HIGHSCORE)
         elif selection == 'settings':
@@ -210,11 +234,54 @@ class MorraCineseGame:
         elif selection == 'exit':
             self.running = False
     
+    def _start_game_with_mode(self):
+        """Avvia il gioco con la modalità selezionata."""
+        # Imposta la modalità e difficoltà
+        GAME_SETTINGS.game_mode = self.screen_manager.get_selected_mode()
+        GAME_SETTINGS.timed_difficulty = self.screen_manager.get_selected_difficulty()
+        
+        # Avvia il gioco
+        self._start_new_game()
+    
     def _start_new_game(self):
         """Avvia una nuova partita."""
         self.game_logic.reset()
         self.hand_detector.reset_gesture_tracking()
-        self.state_manager.change_state(GameState.PLAYING)
+        
+        # Scegli lo stato iniziale in base alla modalità
+        if GAME_SETTINGS.game_mode == GameMode.TIMED:
+            # Modalità a tempo: la CPU inizia
+            self._start_timed_cpu_turn()
+        else:
+            # Modalità classica
+            self.state_manager.change_state(GameState.PLAYING)
+    
+    def _start_timed_cpu_turn(self):
+        """Avvia il turno della CPU nella modalità a tempo."""
+        # Genera la mossa della CPU in anticipo (ma non la mostra)
+        cpu_move = self.game_logic.get_cpu_move()
+        self.state_manager.change_state(
+            GameState.TIMED_CPU_MOVE,
+            duration=CPU_MOVE_TIMER,
+            cpu_move=cpu_move.value
+        )
+    
+    def _start_timed_player_turn(self):
+        """Avvia il turno del giocatore nella modalità a tempo."""
+        response_time = GAME_SETTINGS.get_player_response_time()
+        self.hand_detector.reset_gesture_tracking()
+        self.state_manager.change_state(
+            GameState.TIMED_PLAYER_TURN,
+            duration=response_time,
+            cpu_move=self.state_manager.get_data('cpu_move'),
+            player_move=None
+        )
+    
+    def _process_timed_player_move(self, gesture: str):
+        """Processa la mossa del giocatore nella modalità a tempo."""
+        # Salva la mossa e risolvi immediatamente
+        self.state_manager.set_data('player_move', gesture)
+        self._resolve_timed_round()
     
     def _update_camera(self):
         """Aggiorna il frame della camera."""
@@ -248,6 +315,13 @@ class MorraCineseGame:
                 if self.current_gesture in ['rock', 'paper', 'scissors']:
                     self._update_player_move(self.current_gesture)
                 self.gesture_progress = 1.0  # Mostra progresso pieno
+                return
+            
+            # Durante il turno del giocatore in modalità a tempo, aggiorna la mossa immediatamente
+            if self.state_manager.current_state == GameState.TIMED_PLAYER_TURN:
+                if self.current_gesture in ['rock', 'paper', 'scissors']:
+                    self.state_manager.set_data('player_move', self.current_gesture)
+                self.gesture_progress = 1.0
                 return
             
             # Controlla se il gesto e confermato
@@ -288,6 +362,12 @@ class MorraCineseGame:
                 self._update_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
         
+        # Modalità a tempo - turno del giocatore
+        elif current_state == GameState.TIMED_PLAYER_TURN:
+            if gesture in ['rock', 'paper', 'scissors']:
+                self._process_timed_player_move(gesture)
+                self.hand_detector.reset_gesture_tracking()
+        
         # Impostazioni - mantieni solo navigation down via gesture
         elif current_state == GameState.SETTINGS:
             if gesture == 'point_down':
@@ -313,10 +393,26 @@ class MorraCineseGame:
         """Aggiorna la logica di gioco."""
         current_state = self.state_manager.current_state
         
-        # Gestione countdown
+        # Gestione countdown (modalità classica)
         if current_state == GameState.COUNTDOWN:
             if self.state_manager.is_state_timed_out():
                 self._resolve_round()
+        
+        # Gestione turno CPU (modalità a tempo)
+        elif current_state == GameState.TIMED_CPU_MOVE:
+            if self.state_manager.is_state_timed_out():
+                # La CPU ha fatto la sua mossa, tocca al giocatore
+                self._start_timed_player_turn()
+        
+        # Gestione turno giocatore (modalità a tempo)
+        elif current_state == GameState.TIMED_PLAYER_TURN:
+            # Controlla se il giocatore ha fatto una mossa
+            player_move = self.state_manager.get_data('player_move')
+            if player_move is not None:
+                self._resolve_timed_round()
+            elif self.state_manager.is_state_timed_out():
+                # Tempo scaduto! Il giocatore non ha fatto la mossa
+                self._handle_player_timeout()
         
         # Gestione risultato
         elif current_state == GameState.SHOWING_RESULT:
@@ -324,7 +420,58 @@ class MorraCineseGame:
                 if self.game_logic.is_game_over():
                     self.state_manager.change_state(GameState.GAME_OVER)
                 else:
-                    self.state_manager.change_state(GameState.PLAYING)
+                    # Continua con la modalità corretta
+                    if GAME_SETTINGS.game_mode == GameMode.TIMED:
+                        self._start_timed_cpu_turn()
+                    else:
+                        self.state_manager.change_state(GameState.PLAYING)
+    
+    def _handle_player_timeout(self):
+        """Gestisce il timeout del giocatore nella modalità a tempo."""
+        # Il giocatore non ha fatto la mossa in tempo - conta come sconfitta
+        cpu_gesture = self.state_manager.get_data('cpu_move')
+        
+        # Incrementa il punteggio della CPU (il giocatore perde)
+        self.game_logic.cpu_score += 1
+        self.game_logic.round_count += 1
+        
+        self.state_manager.change_state(
+            GameState.SHOWING_RESULT,
+            duration=2.5,
+            player_move=None,  # Nessuna mossa
+            cpu_move=cpu_gesture,
+            result='timeout',  # Risultato speciale per timeout
+            timeout=True
+        )
+    
+    def _resolve_timed_round(self):
+        """Risolve un round nella modalità a tempo."""
+        player_gesture = self.state_manager.get_data('player_move')
+        cpu_gesture = self.state_manager.get_data('cpu_move')
+        
+        player_move = Move.from_gesture(player_gesture)
+        cpu_move = Move.from_gesture(cpu_gesture)
+        
+        if player_move and cpu_move:
+            # Determina il risultato
+            result = self.game_logic.determine_winner(player_move, cpu_move)
+            
+            # Aggiorna i punteggi
+            if result.value == 'player':
+                self.game_logic.player_score += 1
+            elif result.value == 'cpu':
+                self.game_logic.cpu_score += 1
+            
+            self.game_logic.round_count += 1
+            self.game_logic.history.append((player_move, cpu_move, result))
+            
+            self.state_manager.change_state(
+                GameState.SHOWING_RESULT,
+                duration=2.5,
+                player_move=player_gesture,
+                cpu_move=cpu_gesture,
+                result=result.value
+            )
     
     def _resolve_round(self):
         """Risolve un round di gioco."""

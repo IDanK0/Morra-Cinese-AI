@@ -10,8 +10,11 @@ import time
 class GameState(Enum):
     """Stati possibili del gioco."""
     MENU = auto()           # Menu principale
+    MODE_SELECT = auto()    # Selezione modalità di gioco
     PLAYING = auto()        # In gioco - attesa gesto
     COUNTDOWN = auto()      # Countdown prima della mossa
+    TIMED_CPU_MOVE = auto() # Modalità a tempo - CPU sta scegliendo
+    TIMED_PLAYER_TURN = auto() # Modalità a tempo - turno del giocatore
     SHOWING_RESULT = auto() # Mostra risultato round
     GAME_OVER = auto()      # Fine partita
     HIGHSCORE = auto()      # Schermata classifica

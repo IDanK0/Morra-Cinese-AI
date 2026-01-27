@@ -1,9 +1,33 @@
 {
   "scores": [
     {
+      "name": "LLL",
+      "score": 6,
+      "date": "2026-01-27T13:24:49.678668",
+      "stats": {
+        "rounds_played": 8,
+        "player_wins": 6,
+        "cpu_wins": 1,
+        "draws": 1,
+        "win_rate": 0.75
+      }
+    },
+    {
       "name": "RER",
       "score": 1,
       "date": "2026-01-20T12:55:13.133961",
+      "stats": {
+        "rounds_played": 2,
+        "player_wins": 1,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.5
+      }
+    },
+    {
+      "name": "KKK",
+      "score": 1,
+      "date": "2026-01-27T13:23:43.150169",
       "stats": {
         "rounds_played": 2,
         "player_wins": 1,
@@ -28,6 +52,30 @@
       "name": "EAF",
       "score": 0,
       "date": "2026-01-20T12:54:49.260845",
+      "stats": {
+        "rounds_played": 1,
+        "player_wins": 0,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.0
+      }
+    },
+    {
+      "name": "GGG",
+      "score": 0,
+      "date": "2026-01-27T13:20:43.472880",
+      "stats": {
+        "rounds_played": 1,
+        "player_wins": 0,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.0
+      }
+    },
+    {
+      "name": "JJJ",
+      "score": 0,
+      "date": "2026-01-27T13:23:25.442910",
       "stats": {
         "rounds_played": 1,
         "player_wins": 0,

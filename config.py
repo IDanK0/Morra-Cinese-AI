@@ -26,6 +26,39 @@ GESTURE_HOLD_TIME = 1.0  # Secondi per confermare un gesto
 COUNTDOWN_TIME = 3  # Secondi di countdown prima della mossa
 
 # =====================
+# MODALITÀ A TEMPO
+# =====================
+from enum import Enum
+
+class GameMode(Enum):
+    """Modalità di gioco disponibili."""
+    CLASSIC = 'classic'      # Modalità classica
+    TIMED = 'timed'          # Modalità a tempo
+
+class TimedDifficulty(Enum):
+    """Difficoltà per la modalità a tempo."""
+    EASY = 'easy'       # Facile - 6 secondi
+    MEDIUM = 'medium'   # Media - 4 secondi
+    HARD = 'hard'       # Difficile - 2 secondi
+
+# Timer CPU (fisso per tutte le difficoltà)
+CPU_MOVE_TIMER = 3.0  # Secondi prima che la CPU faccia la sua mossa
+
+# Timer risposta giocatore per difficoltà
+PLAYER_RESPONSE_TIMES = {
+    TimedDifficulty.EASY: 6.0,
+    TimedDifficulty.MEDIUM: 4.0,
+    TimedDifficulty.HARD: 2.0,
+}
+
+# Nomi italiani delle difficoltà
+DIFFICULTY_NAMES = {
+    TimedDifficulty.EASY: 'Facile',
+    TimedDifficulty.MEDIUM: 'Media',
+    TimedDifficulty.HARD: 'Difficile',
+}
+
+# =====================
 # COLORI (RGB)
 # =====================
 COLORS = {
@@ -123,6 +156,9 @@ class GameSettings:
         self.camera_flip = CAMERA_FLIP
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
+        # Modalità di gioco
+        self.game_mode = GameMode.CLASSIC
+        self.timed_difficulty = TimedDifficulty.MEDIUM
         
     def reset_defaults(self):
         """Ripristina le impostazioni predefinite."""
@@ -131,6 +167,12 @@ class GameSettings:
         self.camera_flip = CAMERA_FLIP
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
+        self.game_mode = GameMode.CLASSIC
+        self.timed_difficulty = TimedDifficulty.MEDIUM
+    
+    def get_player_response_time(self) -> float:
+        """Restituisce il tempo di risposta del giocatore per la difficoltà corrente."""
+        return PLAYER_RESPONSE_TIMES.get(self.timed_difficulty, 4.0)
 
 # Istanza globale delle impostazioni
 GAME_SETTINGS = GameSettings()

@@ -12,7 +12,11 @@ from game.game_state import GameState, StateManager
 from game.game_logic import GameLogic, Move, RoundResult
 from game.highscore import HighScoreManager
 from ui.renderer import Renderer
-from config import COLORS, SCREEN_WIDTH, SCREEN_HEIGHT, ROUNDS_TO_WIN, COUNTDOWN_TIME, GAME_SETTINGS
+from config import (
+    COLORS, SCREEN_WIDTH, SCREEN_HEIGHT, ROUNDS_TO_WIN, COUNTDOWN_TIME, 
+    GAME_SETTINGS, GameMode, TimedDifficulty, DIFFICULTY_NAMES, 
+    CPU_MOVE_TIMER, PLAYER_RESPONSE_TIMES
+)
 
 
 class ScreenManager:
@@ -39,12 +43,25 @@ class ScreenManager:
         self.game = game_logic
         self.highscore = highscore_manager
         
-        # Per l'input del nome
+        # For name input
         self.input_name = ""
         self.cursor_blink_time = 0
         
-        # Animazioni
+        # Animations
         self.animation_time = 0
+        
+        # Mode selection menu
+        self.mode_selection = 0  # 0 = Classica, 1 = A tempo
+        self.difficulty_selection = 1  # 0 = Facile, 1 = Media, 2 = Difficile
+        self.mode_options = [
+            {'key': 'classic', 'label': 'Modalità Classica', 'description': 'Gioca senza limiti di tempo'},
+            {'key': 'timed', 'label': 'Modalità A Tempo', 'description': 'Rispondi prima che scada il timer!'},
+        ]
+        self.difficulty_options = [
+            {'key': TimedDifficulty.EASY, 'label': 'Facile', 'time': '6 secondi'},
+            {'key': TimedDifficulty.MEDIUM, 'label': 'Media', 'time': '4 secondi'},
+            {'key': TimedDifficulty.HARD, 'label': 'Difficile', 'time': '2 secondi'},
+        ]
         
         # Settings menu
         self.settings_selection = 0
@@ -82,10 +99,16 @@ class ScreenManager:
         
         if current_state == GameState.MENU:
             self._render_menu(frame, detected_gesture)
+        elif current_state == GameState.MODE_SELECT:
+            self._render_mode_select(frame, detected_gesture)
         elif current_state == GameState.PLAYING:
             self._render_playing(frame, detected_gesture, gesture_progress)
         elif current_state == GameState.COUNTDOWN:
             self._render_countdown(frame)
+        elif current_state == GameState.TIMED_CPU_MOVE:
+            self._render_timed_cpu_move(frame)
+        elif current_state == GameState.TIMED_PLAYER_TURN:
+            self._render_timed_player_turn(frame, detected_gesture, gesture_progress)
         elif current_state == GameState.SHOWING_RESULT:
             self._render_result(frame)
         elif current_state == GameState.GAME_OVER:
@@ -188,6 +211,466 @@ class ScreenManager:
             (SCREEN_WIDTH - 120, SCREEN_HEIGHT - 80)
         )
     
+    def _render_mode_select(self, frame, gesture: str):
+        """Renderizza la schermata di selezione modalità."""
+        # Sfondo con gradiente
+        top_color = (30, 40, 50)
+        bottom_color = COLORS['background']
+        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        
+        # Titolo
+        y_offset = int(5 * math.sin(self.animation_time * 2))
+        self.renderer.draw_text(
+            "SELEZIONA MODALITÀ",
+            (SCREEN_WIDTH // 2, 60 + y_offset),
+            'title',
+            COLORS['primary'],
+            center=True,
+            shadow=True
+        )
+        
+        # Feed camera (piccolo)
+        if frame is not None:
+            self.renderer.draw_camera_feed(
+                frame,
+                (SCREEN_WIDTH - 120, 80),
+                (160, 120),
+                COLORS['primary']
+            )
+        
+        # Opzioni modalità
+        start_y = 150
+        for i, option in enumerate(self.mode_options):
+            selected = i == self.mode_selection
+            y = start_y + i * 100
+            
+            # Box modalità
+            box_width = 500
+            box_height = 80
+            box_rect = pygame.Rect(
+                SCREEN_WIDTH // 2 - box_width // 2,
+                y - 10,
+                box_width,
+                box_height
+            )
+            
+            if selected:
+                # Bordo glow animato
+                glow = 0.5 + 0.3 * math.sin(self.animation_time * 4)
+                glow_color = tuple(int(c * (0.3 + glow * 0.7)) for c in COLORS['primary'])
+                pygame.draw.rect(self.renderer.screen, glow_color, box_rect, border_radius=15)
+                border_color = COLORS['primary']
+            else:
+                pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], box_rect, border_radius=15)
+                border_color = COLORS['gray']
+            
+            pygame.draw.rect(self.renderer.screen, border_color, box_rect, width=3, border_radius=15)
+            
+            # Nome modalità
+            label_color = COLORS['white'] if selected else COLORS['gray']
+            self.renderer.draw_text(
+                option['label'],
+                (SCREEN_WIDTH // 2, y + 15),
+                'large' if selected else 'medium',
+                label_color,
+                center=True
+            )
+            
+            # Descrizione
+            desc_color = COLORS['secondary'] if selected else COLORS['gray']
+            self.renderer.draw_text(
+                option['description'],
+                (SCREEN_WIDTH // 2, y + 45),
+                'small',
+                desc_color,
+                center=True
+            )
+        
+        # Se modalità a tempo selezionata, mostra difficoltà
+        if self.mode_selection == 1:
+            diff_y = start_y + len(self.mode_options) * 100 + 30
+            
+            self.renderer.draw_text(
+                "Seleziona Difficoltà:",
+                (SCREEN_WIDTH // 2, diff_y),
+                'medium',
+                COLORS['secondary'],
+                center=True
+            )
+            
+            # Box difficoltà orizzontale
+            diff_start_x = SCREEN_WIDTH // 2 - 220
+            for i, diff in enumerate(self.difficulty_options):
+                selected_diff = i == self.difficulty_selection
+                x = diff_start_x + i * 150
+                
+                diff_box_rect = pygame.Rect(x - 60, diff_y + 25, 120, 70)
+                
+                if selected_diff:
+                    glow = 0.5 + 0.3 * math.sin(self.animation_time * 4)
+                    glow_color = tuple(int(c * (0.3 + glow * 0.7)) for c in COLORS['secondary'])
+                    pygame.draw.rect(self.renderer.screen, glow_color, diff_box_rect, border_radius=10)
+                    border_color = COLORS['secondary']
+                else:
+                    pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], diff_box_rect, border_radius=10)
+                    border_color = COLORS['gray']
+                
+                pygame.draw.rect(self.renderer.screen, border_color, diff_box_rect, width=2, border_radius=10)
+                
+                # Nome difficoltà
+                label_color = COLORS['white'] if selected_diff else COLORS['gray']
+                self.renderer.draw_text(
+                    diff['label'],
+                    (x, diff_y + 45),
+                    'small',
+                    label_color,
+                    center=True
+                )
+                
+                # Tempo
+                time_color = COLORS['success'] if selected_diff else COLORS['gray']
+                self.renderer.draw_text(
+                    diff['time'],
+                    (x, diff_y + 70),
+                    'tiny',
+                    time_color,
+                    center=True
+                )
+        
+        # Pulsante Indietro
+        back_y = SCREEN_HEIGHT - 120
+        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, back_y - 15, 200, 45)
+        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], back_rect, border_radius=10)
+        pygame.draw.rect(self.renderer.screen, COLORS['gray'], back_rect, width=2, border_radius=10)
+        self.renderer.draw_text(
+            "< INDIETRO (ESC)",
+            (SCREEN_WIDTH // 2, back_y + 5),
+            'small',
+            COLORS['gray'],
+            center=True
+        )
+        
+        # Istruzioni
+        self.renderer.draw_text(
+            "Up/Down per modalità | Left/Right per difficoltà | INVIO per giocare",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50),
+            'small',
+            COLORS['gray'],
+            center=True
+        )
+        
+        # Indicatore gesto
+        self.renderer.draw_gesture_indicator(
+            gesture, 1.0,
+            (SCREEN_WIDTH - 120, SCREEN_HEIGHT - 80)
+        )
+    
+    def _render_timed_cpu_move(self, frame):
+        """Renderizza la schermata quando la CPU sta scegliendo (modalità a tempo)."""
+        # Sfondo con gradiente
+        top_color = (40, 30, 50)
+        bottom_color = COLORS['background']
+        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        
+        # Punteggio
+        player_score, cpu_score = self.game.get_score()
+        self.renderer.draw_score(
+            player_score, cpu_score,
+            (SCREEN_WIDTH // 2, 40)
+        )
+        
+        # Titolo
+        self.renderer.draw_text(
+            "MODALITÀ A TEMPO",
+            (SCREEN_WIDTH // 2, 90),
+            'medium',
+            COLORS['secondary'],
+            center=True
+        )
+        
+        # CPU sta pensando
+        remaining = self.state.get_remaining_time()
+        
+        # Animazione pensiero CPU
+        dots = "." * (int(self.animation_time * 3) % 4)
+        self.renderer.draw_text(
+            f"La CPU sta scegliendo{dots}",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60),
+            'large',
+            COLORS['primary'],
+            center=True
+        )
+        
+        # Timer countdown grande
+        timer_text = f"{remaining:.1f}"
+        pulse = 1.0 + 0.1 * math.sin(self.animation_time * 6)
+        self.renderer.draw_text(
+            timer_text,
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20),
+            'title',
+            COLORS['secondary'],
+            center=True,
+            shadow=True
+        )
+        
+        # Barra progresso
+        bar_width = 400
+        bar_height = 20
+        bar_rect = pygame.Rect(
+            SCREEN_WIDTH // 2 - bar_width // 2,
+            SCREEN_HEIGHT // 2 + 80,
+            bar_width,
+            bar_height
+        )
+        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], bar_rect, border_radius=10)
+        
+        progress = remaining / CPU_MOVE_TIMER
+        if progress > 0:
+            progress_rect = pygame.Rect(
+                bar_rect.left,
+                bar_rect.top,
+                int(bar_rect.width * progress),
+                bar_height
+            )
+            pygame.draw.rect(self.renderer.screen, COLORS['primary'], progress_rect, border_radius=10)
+        
+        pygame.draw.rect(self.renderer.screen, COLORS['white'], bar_rect, width=2, border_radius=10)
+        
+        # Istruzioni
+        self.renderer.draw_text(
+            "Preparati a rispondere!",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80),
+            'medium',
+            COLORS['white'],
+            center=True
+        )
+        
+        # Difficoltà corrente
+        diff_name = DIFFICULTY_NAMES.get(GAME_SETTINGS.timed_difficulty, 'Media')
+        response_time = GAME_SETTINGS.get_player_response_time()
+        self.renderer.draw_text(
+            f"Difficoltà: {diff_name} ({response_time:.0f}s per rispondere)",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40),
+            'small',
+            COLORS['gray'],
+            center=True
+        )
+    
+    def _render_timed_player_turn(self, frame, gesture: str, progress: float):
+        """Renderizza la schermata quando è il turno del giocatore (modalità a tempo)."""
+        # Sfondo con gradiente - diventa rosso quando il tempo sta per scadere
+        remaining = self.state.get_remaining_time()
+        response_time = GAME_SETTINGS.get_player_response_time()
+        time_ratio = remaining / response_time
+        
+        if time_ratio < 0.3:
+            top_color = (80, 30, 30)
+            bottom_color = (50, 20, 20)
+        elif time_ratio < 0.5:
+            top_color = (60, 40, 30)
+            bottom_color = COLORS['background']
+        else:
+            top_color = COLORS['background']
+            bottom_color = (40, 40, 50)
+        
+        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        
+        # Punteggio
+        player_score, cpu_score = self.game.get_score()
+        self.renderer.draw_score(
+            player_score, cpu_score,
+            (SCREEN_WIDTH // 2, 40)
+        )
+        
+        # Titolo urgenza
+        urgency_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['secondary']
+        self.renderer.draw_text(
+            "FAI LA TUA MOSSA!",
+            (SCREEN_WIDTH // 2, 80),
+            'large',
+            urgency_color,
+            center=True,
+            shadow=True
+        )
+        
+        # === MOSTRA LA MOSSA DELLA CPU ===
+        cpu_move = self.state.get_data('cpu_move')
+        move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
+        
+        # Box mossa CPU a sinistra
+        cpu_box_rect = pygame.Rect(30, 120, 160, 180)
+        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], cpu_box_rect, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, COLORS['danger'], cpu_box_rect, width=3, border_radius=15)
+        
+        self.renderer.draw_text(
+            "CPU ha scelto:",
+            (110, 135),
+            'small',
+            COLORS['white'],
+            center=True
+        )
+        
+        # Icona mossa CPU
+        self.renderer.draw_move_icon_enhanced(
+            cpu_move,
+            (110, 210),
+            70,
+            background=False
+        )
+        
+        # Nome mossa CPU
+        self.renderer.draw_text(
+            move_names.get(cpu_move, '?'),
+            (110, 270),
+            'medium',
+            COLORS['danger'],
+            center=True
+        )
+        
+        # Feed camera (al centro, leggermente più piccolo)
+        if frame is not None:
+            border_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['primary']
+            self.renderer.draw_camera_feed(
+                frame,
+                (SCREEN_WIDTH // 2 + 40, SCREEN_HEIGHT // 2 + 10),
+                (300, 220),
+                border_color
+            )
+        
+        # Timer grande a destra
+        timer_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['success']
+        timer_text = f"{remaining:.1f}s"
+        self.renderer.draw_text(
+            timer_text,
+            (SCREEN_WIDTH - 70, 180),
+            'title',
+            timer_color,
+            center=True,
+            shadow=True
+        )
+        
+        self.renderer.draw_text(
+            "TEMPO",
+            (SCREEN_WIDTH - 70, 230),
+            'small',
+            timer_color,
+            center=True
+        )
+        
+        # Barra progresso tempo
+        bar_width = 300
+        bar_height = 25
+        bar_rect = pygame.Rect(
+            SCREEN_WIDTH // 2 - bar_width // 2 + 40,
+            SCREEN_HEIGHT - 130,
+            bar_width,
+            bar_height
+        )
+        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], bar_rect, border_radius=12)
+        
+        if time_ratio > 0:
+            progress_rect = pygame.Rect(
+                bar_rect.left,
+                bar_rect.top,
+                int(bar_rect.width * time_ratio),
+                bar_height
+            )
+            bar_color = COLORS['danger'] if time_ratio < 0.3 else (COLORS['secondary'] if time_ratio < 0.5 else COLORS['success'])
+            pygame.draw.rect(self.renderer.screen, bar_color, progress_rect, border_radius=12)
+        
+        pygame.draw.rect(self.renderer.screen, COLORS['white'], bar_rect, width=2, border_radius=12)
+        
+        # Mossa del giocatore mostrata (in basso a destra)
+        player_move = self.state.get_data('player_move')
+        if player_move:
+            # Box mossa giocatore
+            player_box_rect = pygame.Rect(SCREEN_WIDTH - 190, SCREEN_HEIGHT - 120, 160, 80)
+            pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], player_box_rect, border_radius=10)
+            pygame.draw.rect(self.renderer.screen, COLORS['success'], player_box_rect, width=2, border_radius=10)
+            
+            self.renderer.draw_text(
+                "Tua mossa:",
+                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 105),
+                'tiny',
+                COLORS['white'],
+                center=True
+            )
+            self.renderer.draw_text(
+                move_names.get(player_move, '?'),
+                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 70),
+                'medium',
+                COLORS['success'],
+                center=True
+            )
+        else:
+            # Indicatore attesa gesto
+            self.renderer.draw_text(
+                "In attesa del",
+                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 100),
+                'small',
+                COLORS['gray'],
+                center=True
+            )
+            self.renderer.draw_text(
+                "tuo gesto...",
+                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 75),
+                'small',
+                COLORS['gray'],
+                center=True
+            )
+        
+        # Istruzioni
+        self.renderer.draw_text(
+            "Mostra Sasso, Carta o Forbice! (o premi 1, 2, 3)",
+            (SCREEN_WIDTH // 2 - 50, SCREEN_HEIGHT - 40),
+            'small',
+            COLORS['white'],
+            center=True
+        )
+        
+        # Warning se tempo sta per scadere (lampeggiante in alto)
+        if time_ratio < 0.3:
+            flash = int(self.animation_time * 6) % 2
+            if flash:
+                self.renderer.draw_text(
+                    "⚠ SBRIGATI! ⚠",
+                    (SCREEN_WIDTH // 2, 115),
+                    'medium',
+                    COLORS['danger'],
+                    center=True
+                )
+    
+    def mode_up(self):
+        """Naviga su nelle modalità."""
+        self.mode_selection = (self.mode_selection - 1) % len(self.mode_options)
+    
+    def mode_down(self):
+        """Naviga giù nelle modalità."""
+        self.mode_selection = (self.mode_selection + 1) % len(self.mode_options)
+    
+    def difficulty_left(self):
+        """Seleziona difficoltà precedente."""
+        if self.mode_selection == 1:  # Solo se modalità a tempo
+            self.difficulty_selection = (self.difficulty_selection - 1) % len(self.difficulty_options)
+    
+    def difficulty_right(self):
+        """Seleziona difficoltà successiva."""
+        if self.mode_selection == 1:  # Solo se modalità a tempo
+            self.difficulty_selection = (self.difficulty_selection + 1) % len(self.difficulty_options)
+    
+    def get_selected_mode(self) -> GameMode:
+        """Restituisce la modalità selezionata."""
+        if self.mode_selection == 0:
+            return GameMode.CLASSIC
+        return GameMode.TIMED
+    
+    def get_selected_difficulty(self) -> TimedDifficulty:
+        """Restituisce la difficoltà selezionata."""
+        return self.difficulty_options[self.difficulty_selection]['key']
+
     def _render_playing(self, frame, gesture: str, progress: float):
         """Renderizza la schermata di gioco con effetti migliorati."""
         # Sfondo con gradiente
@@ -310,11 +793,14 @@ class ScreenManager:
     
     def _render_result(self, frame):
         """Renderizza il risultato del round con effetti migliorati."""
+        result = self.state.get_data('result')
+        is_timeout = self.state.get_data('timeout', False)
+        
         # Sfondo con gradiente dinamico
-        if self.state.get_data('result') == 'player':
+        if result == 'player':
             top_color = (30, 50, 30)
             bottom_color = COLORS['success']
-        elif self.state.get_data('result') == 'cpu':
+        elif result == 'cpu' or result == 'timeout':
             top_color = (50, 30, 30)
             bottom_color = COLORS['danger']
         else:
@@ -332,7 +818,6 @@ class ScreenManager:
         )
         
         # Risultato
-        result = self.state.get_data('result')
         player_move = self.state.get_data('player_move')
         cpu_move = self.state.get_data('cpu_move')
         
@@ -349,7 +834,7 @@ class ScreenManager:
             player_border_color = COLORS['success']
             cpu_border_color = COLORS['danger']
             outcome_color = COLORS['success']
-        elif result == 'cpu':
+        elif result == 'cpu' or result == 'timeout':
             player_border_color = COLORS['danger']
             cpu_border_color = COLORS['success']
             outcome_color = COLORS['danger']
@@ -371,23 +856,48 @@ class ScreenManager:
             center=True
         )
         
-        # Usa le nuove icone migliorate
-        self.renderer.draw_move_icon_enhanced(
-            player_move,
-            (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
-            100,
-            background=False
-        )
-        
-        # Nome mossa giocatore
-        move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
-        self.renderer.draw_text(
-            move_names.get(player_move, '?'),
-            (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
-            'small',
-            COLORS['white'],
-            center=True
-        )
+        # Gestione timeout - mostra messaggio speciale
+        if is_timeout:
+            # Mostra X o messaggio di timeout invece dell'icona
+            self.renderer.draw_text(
+                "TEMPO",
+                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 30),
+                'large',
+                COLORS['danger'],
+                center=True
+            )
+            self.renderer.draw_text(
+                "SCADUTO!",
+                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 10),
+                'large',
+                COLORS['danger'],
+                center=True
+            )
+            self.renderer.draw_text(
+                "Nessuna mossa",
+                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
+                'small',
+                COLORS['gray'],
+                center=True
+            )
+        else:
+            # Usa le nuove icone migliorate
+            self.renderer.draw_move_icon_enhanced(
+                player_move,
+                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
+                100,
+                background=False
+            )
+            
+            # Nome mossa giocatore
+            move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
+            self.renderer.draw_text(
+                move_names.get(player_move, '?'),
+                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
+                'small',
+                COLORS['white'],
+                center=True
+            )
         
         # VS animato con pulsazione
         vs_offset = int(5 * math.sin(self.animation_time * 4))
@@ -415,6 +925,7 @@ class ScreenManager:
         )
         
         # Usa le nuove icone migliorate
+        move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
         self.renderer.draw_move_icon_enhanced(
             cpu_move,
             (3 * SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
@@ -433,10 +944,28 @@ class ScreenManager:
         
         # Banner risultato migliorato con particelle
         if result:
-            self.renderer.draw_result_banner_improved(
-                result, player_move, cpu_move,
-                SCREEN_HEIGHT - 80
-            )
+            # Gestione timeout nel banner
+            if is_timeout:
+                self.renderer.draw_text(
+                    "TEMPO SCADUTO!",
+                    (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100),
+                    'large',
+                    COLORS['danger'],
+                    center=True,
+                    shadow=True
+                )
+                self.renderer.draw_text(
+                    "Non hai fatto la mossa in tempo!",
+                    (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
+                    'medium',
+                    COLORS['white'],
+                    center=True
+                )
+            else:
+                self.renderer.draw_result_banner_improved(
+                    result, player_move, cpu_move,
+                    SCREEN_HEIGHT - 80
+                )
             
             # Emetti particelle di celebrazione
             if result == 'player':

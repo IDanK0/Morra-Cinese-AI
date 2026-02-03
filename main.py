@@ -215,7 +215,11 @@ class MorraCineseGame:
                     self.highscore_manager.clear()
         
         elif current_state in [GameState.HIGHSCORE, GameState.GAME_OVER]:
-            if event.key == pygame.K_RETURN:
+            if event.key == pygame.K_LEFT:
+                self.screen_manager.highscore_filter_left()
+            elif event.key == pygame.K_RIGHT:
+                self.screen_manager.highscore_filter_right()
+            elif event.key == pygame.K_RETURN:
                 if current_state == GameState.GAME_OVER:
                     self._check_and_save_highscore()
                 else:
@@ -498,7 +502,13 @@ class MorraCineseGame:
         score = self.state_manager.get_data('score', 0)
         stats = self.game_logic.get_stats()
         
-        position = self.highscore_manager.add_score(name, score, stats)
+        # Determina modalità e difficoltà
+        game_mode = 'classic' if GAME_SETTINGS.game_mode == GameMode.CLASSIC else 'timed'
+        difficulty = None
+        if GAME_SETTINGS.game_mode == GameMode.TIMED:
+            difficulty = GAME_SETTINGS.timed_difficulty.value
+        
+        position = self.highscore_manager.add_score(name, score, stats, game_mode, difficulty)
         print(f"Nuovo record! {name}: {score} punti (posizione {position})")
         
         self.state_manager.change_state(GameState.HIGHSCORE)

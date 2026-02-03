@@ -46,6 +46,10 @@ class ScreenManager:
         # For name input
         self.input_name = ""
         self.cursor_blink_time = 0
+        self._name_input_particles = False
+        
+        # For highscore filtering
+        self.highscore_filter = 'all'  # 'all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard'
         
         # Animations
         self.animation_time = 0
@@ -1093,7 +1097,7 @@ class ScreenManager:
         )
     
     def _render_highscore(self, frame, gesture: str):
-        """Renderizza la classifica con effetti migliorati."""
+        """Renderizza la classifica con filtri per modalità."""
         # Sfondo con gradiente
         top_color = (30, 35, 50)
         bottom_color = COLORS['background']
@@ -1103,51 +1107,101 @@ class ScreenManager:
         # Titolo con effetto pulsante
         self.renderer.draw_text(
             "[TROPHY] CLASSIFICA [TROPHY]",
-            (SCREEN_WIDTH // 2, 50),
+            (SCREEN_WIDTH // 2, 30),
             'title',
             COLORS['primary'],
             center=True,
             shadow=True
         )
         
+        # Tab per filtrare modalità
+        tab_y = 80
+        tabs = [
+            {'id': 'all', 'label': 'TUTTE'},
+            {'id': 'classic', 'label': 'CLASSICA'},
+            {'id': 'timed_easy', 'label': 'FACILE'},
+            {'id': 'timed_medium', 'label': 'MEDIA'},
+            {'id': 'timed_hard', 'label': 'DIFFICILE'}
+        ]
+        
+        tab_width = 140
+        total_tabs_width = len(tabs) * tab_width
+        start_x = (SCREEN_WIDTH - total_tabs_width) // 2 + tab_width // 2
+        
+        for i, tab in enumerate(tabs):
+            x = start_x + i * tab_width
+            is_selected = self.highscore_filter == tab['id']
+            
+            # Box tab
+            tab_rect = pygame.Rect(x - 65, tab_y - 8, 130, 30)
+            if is_selected:
+                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], tab_rect, border_radius=5)
+                text_color = COLORS['white']
+            else:
+                pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], tab_rect, border_radius=5)
+                text_color = COLORS['gray']
+            
+            pygame.draw.rect(self.renderer.screen, COLORS['gray'], tab_rect, width=1, border_radius=5)
+            
+            # Testo tab
+            self.renderer.draw_text(
+                tab['label'],
+                (x, tab_y + 5),
+                'tiny',
+                text_color,
+                center=True
+            )
+        
+        # Filtra punteggi in base al tab selezionato
+        if self.highscore_filter == 'all':
+            scores = self.highscore.get_scores()
+            subtitle = "Tutte le Modalità"
+        elif self.highscore_filter == 'classic':
+            scores = self.highscore.get_scores(mode='classic')
+            subtitle = "Modalità Classica"
+        elif self.highscore_filter == 'timed_easy':
+            scores = self.highscore.get_scores(mode='timed', difficulty='easy')
+            subtitle = "A Tempo - Facile"
+        elif self.highscore_filter == 'timed_medium':
+            scores = self.highscore.get_scores(mode='timed', difficulty='medium')
+            subtitle = "A Tempo - Media"
+        elif self.highscore_filter == 'timed_hard':
+            scores = self.highscore.get_scores(mode='timed', difficulty='hard')
+            subtitle = "A Tempo - Difficile"
+        else:
+            scores = self.highscore.get_scores()
+            subtitle = "Tutte le Modalità"
+        
         self.renderer.draw_text(
-            "Vittorie Consecutive",
-            (SCREEN_WIDTH // 2, 95),
+            subtitle,
+            (SCREEN_WIDTH // 2, 120),
             'small',
             COLORS['secondary'],
             center=True
         )
         
-        # Tabella punteggi (numero dinamico di righe basato sui punteggi presenti)
-        scores = self.highscore.get_scores()
+        # Tabella punteggi
         if scores:
             self.renderer.draw_highscore_table_improved(
                 scores,
-                (SCREEN_WIDTH // 2, 140)
+                (SCREEN_WIDTH // 2, 160)
             )
         else:
-            # Messaggio se nessun punteggio con design migliorato
-            no_score_rect = pygame.Rect(SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 - 80, 360, 160)
+            # Messaggio se nessun punteggio
+            no_score_rect = pygame.Rect(SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 - 40, 360, 120)
             pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], no_score_rect, border_radius=15)
             pygame.draw.rect(self.renderer.screen, COLORS['gray'], no_score_rect, width=2, border_radius=15)
             
             self.renderer.draw_text(
                 "[!] Nessun Punteggio",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 30),
+                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10),
                 'medium',
                 COLORS['gray'],
                 center=True
             )
             self.renderer.draw_text(
-                "Gioca una partita per",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 15),
-                'small',
-                COLORS['secondary'],
-                center=True
-            )
-            self.renderer.draw_text(
-                "entrare in classifica!",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 45),
+                "in questa modalità",
+                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30),
                 'small',
                 COLORS['secondary'],
                 center=True
@@ -1170,7 +1224,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "Premi INVIO per tornare al menu",
+            "← → per cambiare filtro | INVIO per tornare",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
             'small',
             COLORS['gray'],
@@ -1203,7 +1257,7 @@ class ScreenManager:
         )
         
         self.renderer.draw_text(
-            "Inserisci il tuo nome (3 lettere)",
+            "Inserisci il tuo nome (max 5 caratteri)",
             (SCREEN_WIDTH // 2, 150),
             'medium',
             COLORS['white'],
@@ -1404,13 +1458,13 @@ class ScreenManager:
             Nome completo se confermato, None altrimenti
         """
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN and len(self.input_name) == 3:
+            if event.key == pygame.K_RETURN and len(self.input_name) >= 1:
                 name = self.input_name
                 self.input_name = ""
                 return name
             elif event.key == pygame.K_BACKSPACE:
                 self.input_name = self.input_name[:-1]
-            elif len(self.input_name) < 3 and event.unicode.isalpha():
+            elif len(self.input_name) < 5 and event.unicode.isalpha():
                 self.input_name += event.unicode.upper()
         
         return None
@@ -1419,3 +1473,15 @@ class ScreenManager:
         """Resetta l'input del nome."""
         self.input_name = ""
         self.cursor_blink_time = 0
+    
+    def highscore_filter_left(self):
+        """Cambia il filtro della classifica verso sinistra."""
+        filters = ['all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard']
+        current_idx = filters.index(self.highscore_filter)
+        self.highscore_filter = filters[(current_idx - 1) % len(filters)]
+    
+    def highscore_filter_right(self):
+        """Cambia il filtro della classifica verso destra."""
+        filters = ['all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard']
+        current_idx = filters.index(self.highscore_filter)
+        self.highscore_filter = filters[(current_idx + 1) % len(filters)]

@@ -60,26 +60,30 @@ class HighScoreManager:
             print(f"Errore salvataggio classifica: {e}")
             return False
     
-    def add_score(self, name: str, score: int, stats: Optional[dict] = None) -> int:
+    def add_score(self, name: str, score: int, stats: Optional[dict] = None, game_mode: str = 'classic', difficulty: str = None) -> int:
         """
         Aggiunge un nuovo punteggio alla classifica.
         
         Args:
-            name: Nome del giocatore (3 caratteri)
+            name: Nome del giocatore (max 5 caratteri)
             score: Punteggio ottenuto
             stats: Statistiche aggiuntive opzionali
+            game_mode: Modalità di gioco ('classic' o 'timed')
+            difficulty: Difficoltà per modalità timed ('easy', 'medium', 'hard')
             
         Returns:
             Posizione in classifica (1-indexed) o -1 se non in classifica
         """
-        # Limita il nome a 3 caratteri
-        name = name.upper()[:3].ljust(3)
+        # Limita il nome a 5 caratteri
+        name = name.upper()[:5]
         
         entry = {
             'name': name,
             'score': score,
             'date': datetime.now().isoformat(),
-            'stats': stats or {}
+            'stats': stats or {},
+            'mode': game_mode,
+            'difficulty': difficulty
         }
         
         # Inserisci in ordine decrescente
@@ -99,19 +103,61 @@ class HighScoreManager:
         
         return -1
     
-    def get_scores(self, limit: Optional[int] = None) -> List[dict]:
+    def get_scores(self, limit: Optional[int] = None, mode: Optional[str] = None, difficulty: Optional[str] = None) -> List[dict]:
         """
-        Restituisce la lista dei punteggi.
+        Restituisce la lista dei punteggi filtrati per modalità e difficoltà.
         
         Args:
             limit: Numero massimo di voci da restituire
+            mode: Filtra per modalità ('classic' o 'timed'), None per tutte
+            difficulty: Filtra per difficoltà ('easy', 'medium', 'hard'), None per tutte
             
         Returns:
             Lista di dizionari con i punteggi
         """
+        filtered_scores = self.scores
+        
+        # Filtra per modalità
+        if mode:
+            filtered_scores = [s for s in filtered_scores if s.get('mode', 'classic') == mode]
+        
+        # Filtra per difficoltà (solo se specificata)
+        if difficulty:
+            filtered_scores = [s for s in filtered_scores if s.get('difficulty') == difficulty]
+        
         if limit:
-            return self.scores[:limit]
-        return self.scores
+            return filtered_scores[:limit]
+        return filtered_scores
+    
+    def get_scores_by_mode(self) -> dict:
+        """
+        Restituisce i punteggi raggruppati per modalità.
+        
+        Returns:
+            Dizionario con chiavi 'classic' e 'timed' (suddiviso per difficoltà)
+        """
+        result = {
+            'classic': [],
+            'timed': {
+                'easy': [],
+                'medium': [],
+                'hard': [],
+                'all': []
+            }
+        }
+        
+        for score in self.scores:
+            mode = score.get('mode', 'classic')
+            difficulty = score.get('difficulty')
+            
+            if mode == 'classic':
+                result['classic'].append(score)
+            elif mode == 'timed':
+                result['timed']['all'].append(score)
+                if difficulty:
+                    result['timed'][difficulty].append(score)
+        
+        return result
     
     def get_top_scores(self, count: int = 5) -> List[Tuple[str, int]]:
         """

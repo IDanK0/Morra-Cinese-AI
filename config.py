@@ -139,7 +139,7 @@ TEXTS = {
     'draw': 'PAREGGIO!',
     'make_gesture': 'Fai il tuo gesto!',
     'countdown': 'Pronti in...',
-    'enter_name': 'Inserisci il tuo nome (3 lettere)',
+    'enter_name': 'Inserisci il tuo nome (max 5 caratteri)',
 }
 
 # =====================

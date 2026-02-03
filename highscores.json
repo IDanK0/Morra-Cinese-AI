@@ -13,6 +13,18 @@
       }
     },
     {
+      "name": "HDH",
+      "score": 4,
+      "date": "2026-02-03T13:33:11.210563",
+      "stats": {
+        "rounds_played": 5,
+        "player_wins": 4,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.8
+      }
+    },
+    {
       "name": "PIT",
       "score": 3,
       "date": "2026-02-03T13:10:23.129314",
@@ -95,6 +107,20 @@
         "draws": 0,
         "win_rate": 0.0
       }
+    },
+    {
+      "name": "KKK",
+      "score": 0,
+      "date": "2026-02-03T13:38:15.843664",
+      "stats": {
+        "rounds_played": 1,
+        "player_wins": 0,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.0
+      },
+      "mode": "classic",
+      "difficulty": null
     }
   ]
 }

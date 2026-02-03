@@ -26,6 +26,25 @@ GESTURE_HOLD_TIME = 1.0  # Secondi per confermare un gesto
 COUNTDOWN_TIME = 3  # Secondi di countdown prima della mossa
 
 # =====================
+# RICONOSCIMENTO GESTI AVANZATO
+# =====================
+# Parametri per il riconoscimento migliorato
+GESTURE_DETECTION = {
+    'min_detection_confidence': 0.7,  # Soglia minima per rilevare la mano
+    'min_tracking_confidence': 0.7,   # Soglia minima per tracking continuo
+    'temporal_smoothing_frames': 5,    # Numero di frame per smoothing temporale
+    
+    # Parametri FORBICI
+    'scissors_v_ratio_excellent': 1.3, # Rapporto punte/base per forbice perfetta
+    'scissors_v_ratio_good': 1.1,      # Rapporto punte/base per forbice accettabile
+    
+    # Parametri DITA ESTESE
+    'finger_extension_distance_ratio': 1.15,  # Ratio distanza per dito esteso
+    'finger_angle_threshold': 140,     # Angolo minimo per considerare dito esteso (gradi)
+    'wrist_distance_ratio': 1.3,       # Ratio distanza punta-polso vs base-polso
+}
+
+# =====================
 # MODALITÀ A TEMPO
 # =====================
 from enum import Enum
@@ -89,7 +108,6 @@ GESTURES = {
     'rock': 'Sasso',
     'paper': 'Carta',
     'scissors': 'Forbice',
-    'point_down': 'Giu',
     'none': 'Nessun gesto'
 }
 

@@ -5,8 +5,26 @@ Modulo di riconoscimento gesti della mano usando MediaPipe
 import cv2
 import mediapipe as mp
 import numpy as np
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 import time
+from collections import deque
+import math
+
+# Importa configurazioni
+try:
+    from config import GESTURE_DETECTION
+except ImportError:
+    # Valori di default se config non è disponibile
+    GESTURE_DETECTION = {
+        'min_detection_confidence': 0.7,
+        'min_tracking_confidence': 0.7,
+        'temporal_smoothing_frames': 5,
+        'fist_closure_threshold': 1.8,
+        'scissors_v_ratio_excellent': 1.3,
+        'scissors_v_ratio_good': 1.1,
+        'finger_extension_margin': 0.02,
+        'finger_extension_distance_ratio': 1.15,
+    }
 
 class HandDetector:
     """
@@ -40,11 +58,17 @@ class HandDetector:
         # Indici dei landmark per ogni dito
         self.finger_tips = [4, 8, 12, 16, 20]  # Pollice, Indice, Medio, Anulare, Mignolo
         self.finger_pips = [3, 6, 10, 14, 18]  # Articolazioni intermedie
+        self.finger_mcps = [2, 5, 9, 13, 17]   # Articolazioni base
         
         # Per il tracking del gesto nel tempo
         self.last_gesture = None
         self.gesture_start_time = 0
         self.gesture_confirmed = False
+        
+        # Smoothing temporale per ridurre jitter
+        smoothing_frames = GESTURE_DETECTION.get('temporal_smoothing_frames', 5)
+        self.gesture_history = deque(maxlen=smoothing_frames)
+        self.confidence_history = deque(maxlen=smoothing_frames)
         
     def find_hands(self, frame: np.ndarray, draw: bool = True) -> Tuple[np.ndarray, List]:
         """
@@ -88,7 +112,8 @@ class HandDetector:
     
     def get_finger_states(self, hand_landmarks, frame_shape: Tuple[int, int]) -> List[bool]:
         """
-        Determina quali dita sono estese.
+        Determina quali dita sono estese con algoritmo rotation-invariant.
+        Funziona indipendentemente dall'orientamento della mano.
         
         Args:
             hand_landmarks: Landmark della mano da MediaPipe
@@ -102,34 +127,177 @@ class HandDetector:
         
         fingers = []
         
-        # Pollice - confronta x invece di y (movimento laterale)
+        # Pollice - usa distanza euclidea dal polso (già rotation-invariant)
         thumb_tip = landmarks[4]
         thumb_ip = landmarks[3]
         thumb_mcp = landmarks[2]
+        wrist = landmarks[0]
         
-        # Il pollice e' esteso se la punta e' piu' lontana dal palmo
-        thumb_extended = abs(thumb_tip.x - thumb_mcp.x) > abs(thumb_ip.x - thumb_mcp.x)
+        # Distanza punta pollice dal polso vs articolazione dal polso
+        dist_tip_wrist = self._calculate_distance(thumb_tip, wrist)
+        dist_ip_wrist = self._calculate_distance(thumb_ip, wrist)
+        
+        # Il pollice è esteso se la punta è più lontana dal polso
+        thumb_extended = dist_tip_wrist > dist_ip_wrist * 1.1  # 10% di tolleranza
         fingers.append(thumb_extended)
         
-        # Altri 4 dita - confronta y (punta sopra l'articolazione = esteso)
-        for tip_idx, pip_idx in zip(self.finger_tips[1:], self.finger_pips[1:]):
+        # Altri 4 dita - usa solo distanze euclidee (rotation-invariant)
+        for i, (tip_idx, pip_idx, mcp_idx) in enumerate(zip(
+            self.finger_tips[1:], 
+            self.finger_pips[1:], 
+            self.finger_mcps[1:]
+        )):
             tip = landmarks[tip_idx]
             pip = landmarks[pip_idx]
-            # Y piu' basso = piu' in alto nel frame
-            fingers.append(tip.y < pip.y)
+            mcp = landmarks[mcp_idx]
+            
+            # Metodo 1: Confronto distanze da MCP (base del dito)
+            dist_tip_mcp = self._calculate_distance(tip, mcp)
+            dist_pip_mcp = self._calculate_distance(pip, mcp)
+            ratio = GESTURE_DETECTION.get('finger_extension_distance_ratio', 1.15)
+            dist_extended = dist_tip_mcp > dist_pip_mcp * ratio
+            
+            # Metodo 2: Confronto distanze dal polso
+            dist_tip_wrist = self._calculate_distance(tip, wrist)
+            dist_mcp_wrist = self._calculate_distance(mcp, wrist)
+            wrist_extended = dist_tip_wrist > dist_mcp_wrist * 1.3
+            
+            # Metodo 3: Verifica angolo - dito esteso ha angolo > 140°
+            angle = self._calculate_angle(tip, pip, mcp)
+            angle_extended = angle > 140
+            
+            # Dito esteso se almeno 2 metodi concordano
+            votes = sum([dist_extended, wrist_extended, angle_extended])
+            fingers.append(votes >= 2)
         
         return fingers
     
-    def recognize_gesture(self, hand_landmarks, frame_shape: Tuple[int, int]) -> str:
+    def _calculate_distance(self, point1, point2) -> float:
+        """Calcola la distanza euclidea tra due landmark."""
+        return math.sqrt(
+            (point1.x - point2.x) ** 2 + 
+            (point1.y - point2.y) ** 2 + 
+            (point1.z - point2.z) ** 2
+        )
+    
+    def _calculate_angle(self, point1, point2, point3) -> float:
         """
-        Riconosce il gesto della mano basandosi sui landmark.
+        Calcola l'angolo formato da tre punti (point2 è il vertice).
+        Restituisce l'angolo in gradi.
+        """
+        # Vettori
+        v1 = np.array([point1.x - point2.x, point1.y - point2.y, point1.z - point2.z])
+        v2 = np.array([point3.x - point2.x, point3.y - point2.y, point3.z - point2.z])
+        
+        # Calcola l'angolo
+        cos_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-6)
+        cos_angle = np.clip(cos_angle, -1.0, 1.0)
+        angle = np.arccos(cos_angle)
+        
+        return np.degrees(angle)
+    
+    def _is_fist_closed(self, hand_landmarks, fingers: List[bool]) -> Tuple[bool, float]:
+        """
+        Verifica se la mano è chiusa a pugno - algoritmo semplificato e permissivo.
+        
+        Args:
+            hand_landmarks: Landmark della mano
+            fingers: Stato delle dita
+            
+        Returns:
+            Tupla (is_fist, confidence)
+        """
+        landmarks = hand_landmarks.landmark
+        
+        # Se troppe dita estese, non è un pugno
+        num_extended = sum(fingers)
+        if num_extended >= 3:  # Massimo 2 dita "semi-estese" tollerate
+            return False, 0.0
+        
+        wrist = landmarks[0]
+        middle_mcp = landmarks[9]
+        hand_size = self._calculate_distance(wrist, middle_mcp)
+        
+        scores = []
+        
+        # === CRITERIO 1: Compattezza (più permissivo) ===
+        all_x = [lm.x for lm in landmarks]
+        all_y = [lm.y for lm in landmarks]
+        all_z = [lm.z for lm in landmarks]
+        
+        bbox_width = max(all_x) - min(all_x)
+        bbox_height = max(all_y) - min(all_y)
+        bbox_depth = max(all_z) - min(all_z)
+        bbox_volume = bbox_width * bbox_height * bbox_depth
+        
+        natural_volume = hand_size ** 3
+        compactness_ratio = bbox_volume / (natural_volume + 1e-6)
+        
+        # Più permissivo: < 35% invece di 20%
+        if compactness_ratio < 0.35:
+            compactness_score = min(1.0, (0.35 - compactness_ratio) / 0.35 * 1.5)
+            scores.append(compactness_score)
+        
+        # === CRITERIO 2: Distanza Punte dal Polso (semplificato) ===
+        tip_distances = []
+        for tip_idx in self.finger_tips[1:]:  # Escludi pollice
+            dist = self._calculate_distance(landmarks[tip_idx], wrist)
+            tip_distances.append(dist)
+        
+        avg_tip_distance = np.mean(tip_distances)
+        
+        # Più permissivo: < 2.0x hand_size
+        threshold = hand_size * 2.0
+        if avg_tip_distance < threshold:
+            distance_score = 1.0 - (avg_tip_distance / threshold)
+            scores.append(distance_score)
+        
+        # === CRITERIO 3: Punte Raggruppate ===
+        inter_tip_distances = []
+        for i in range(len(self.finger_tips[1:]) - 1):
+            for j in range(i + 1, len(self.finger_tips[1:])):
+                dist = self._calculate_distance(
+                    landmarks[self.finger_tips[1:][i]], 
+                    landmarks[self.finger_tips[1:][j]]
+                )
+                inter_tip_distances.append(dist)
+        
+        avg_inter_tip = np.mean(inter_tip_distances)
+        
+        # Più permissivo: < 0.7x hand_size
+        grouping_threshold = hand_size * 0.7
+        if avg_inter_tip < grouping_threshold:
+            grouping_score = 1.0 - (avg_inter_tip / grouping_threshold)
+            scores.append(grouping_score)
+        
+        # === VALUTAZIONE FINALE (semplificata) ===
+        # Serve almeno 2 criteri soddisfatti (invece di 3)
+        if len(scores) < 2:
+            return False, 0.0
+        
+        # Confidenza base dalla media
+        confidence = np.mean(scores)
+        
+        # Boost se nessun dito esteso
+        if num_extended == 0:
+            confidence = min(1.0, confidence + 0.2)
+        
+        # Soglia minima molto bassa
+        if confidence >= 0.3:
+            return True, min(0.95, confidence)
+        
+        return False, 0.0
+    
+    def recognize_gesture(self, hand_landmarks, frame_shape: Tuple[int, int]) -> Tuple[str, float]:
+        """
+        Riconosce il gesto della mano con scoring di confidenza migliorato.
         
         Args:
             hand_landmarks: Landmark della mano da MediaPipe
             frame_shape: (height, width) del frame
             
         Returns:
-            Stringa identificativa del gesto riconosciuto
+            Tupla (gesto, confidenza) dove confidenza è un valore tra 0.0 e 1.0
         """
         fingers = self.get_finger_states(hand_landmarks, frame_shape)
         landmarks = hand_landmarks.landmark
@@ -137,33 +305,96 @@ class HandDetector:
         # Conta le dita estese
         extended_count = sum(fingers)
         
-        # === GESTI DI GIOCO ===
+        # === GESTI DI GIOCO CON CONFIDENZA ===
         
-        # SASSO: Tutte le dita chiuse (pugno)
-        # Now require zero extended fingers so that a single index finger
-        # can be recognized as point_up/point_down instead of being
-        # misclassified as 'rock'.
-        if extended_count == 0:
-            return 'rock'
+        # SASSO: Pugno chiuso - controllo multi-criterio avanzato
+        is_fist, fist_confidence = self._is_fist_closed(hand_landmarks, fingers)
+        if is_fist:
+            return 'rock', fist_confidence
         
         # CARTA: Tutte le dita estese (mano aperta)
         if extended_count >= 4:
-            return 'paper'
+            # Verifica che le dita siano ben aperte
+            confidence = 0.7 + (extended_count - 4) * 0.1  # 0.7-0.8 base
+            
+            # Bonus se anche il pollice è esteso
+            if fingers[0]:
+                confidence += 0.15
+                
+            return 'paper', min(1.0, confidence)
         
-        # FORBICE: Solo indice e medio estesi
+        # FORBICE: Solo indice e medio estesi con geometria a V
         if fingers[1] and fingers[2] and not fingers[3] and not fingers[4]:
-            return 'scissors'
-        
-        # === GESTI DI NAVIGAZIONE ===
-        
-        # PUNTA GIU: Solo indice esteso verso il basso (usato per navigazione down)
-        if fingers[1] and not fingers[2] and not fingers[3] and not fingers[4]:
+            # Verifica la separazione tra indice e medio (forma a V)
             index_tip = landmarks[8]
+            middle_tip = landmarks[12]
             index_mcp = landmarks[5]
-            if index_tip.y > index_mcp.y:
-                return 'point_down'
+            middle_mcp = landmarks[9]
+            
+            # Distanza tra le punte
+            tips_distance = self._calculate_distance(index_tip, middle_tip)
+            # Distanza tra le basi
+            mcps_distance = self._calculate_distance(index_mcp, middle_mcp)
+            
+            # Le punte dovrebbero essere più distanti delle basi (forma a V)
+            v_ratio = tips_distance / (mcps_distance + 1e-6)
+            
+            # Confidenza basata sulla qualità della V
+            excellent_ratio = GESTURE_DETECTION.get('scissors_v_ratio_excellent', 1.3)
+            good_ratio = GESTURE_DETECTION.get('scissors_v_ratio_good', 1.1)
+            
+            if v_ratio > excellent_ratio:
+                confidence = 0.9
+            elif v_ratio > good_ratio:
+                confidence = 0.75
+            else:
+                confidence = 0.6
+            
+            return 'scissors', confidence
         
-        return 'none'
+        return 'none', 0.0
+    
+    def _apply_temporal_smoothing(self, gesture: str, confidence: float) -> Tuple[str, float]:
+        """
+        Applica smoothing temporale per ridurre il jitter nel riconoscimento.
+        
+        Args:
+            gesture: Gesto riconosciuto nel frame corrente
+            confidence: Confidenza del gesto corrente
+            
+        Returns:
+            Tupla (gesto_smoothed, confidenza_smoothed)
+        """
+        # Aggiungi alla storia
+        self.gesture_history.append(gesture)
+        self.confidence_history.append(confidence)
+        
+        # Se abbiamo pochi campioni, ritorna il gesto corrente
+        if len(self.gesture_history) < 3:
+            return gesture, confidence
+        
+        # Conta le occorrenze di ogni gesto
+        gesture_counts: Dict[str, int] = {}
+        for g in self.gesture_history:
+            gesture_counts[g] = gesture_counts.get(g, 0) + 1
+        
+        # Trova il gesto più frequente
+        most_common_gesture = max(gesture_counts, key=gesture_counts.get)
+        
+        # Calcola confidenza media per il gesto più comune
+        confidences = [
+            c for g, c in zip(self.gesture_history, self.confidence_history) 
+            if g == most_common_gesture
+        ]
+        avg_confidence = np.mean(confidences) if confidences else 0.0
+        
+        # Ritorna il gesto più frequente solo se appare nella maggioranza
+        majority_threshold = len(self.gesture_history) // 2
+        if gesture_counts[most_common_gesture] >= majority_threshold:
+            return most_common_gesture, avg_confidence
+        
+        # Altrimenti ritorna 'none' (nessun gesto stabile)
+        return 'none', 0.0
     
     def get_confirmed_gesture(self, gesture: str, hold_time: float = 0.5) -> Optional[str]:
         """
@@ -214,6 +445,8 @@ class HandDetector:
         self.last_gesture = None
         self.gesture_start_time = 0
         self.gesture_confirmed = False
+        self.gesture_history.clear()
+        self.confidence_history.clear()
     
     def get_hand_center(self, hand_landmarks, frame_shape: Tuple[int, int]) -> Tuple[int, int]:
         """

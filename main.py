@@ -57,6 +57,7 @@ class MorraCineseGame:
         # Variabili di stato
         self.current_frame = None
         self.current_gesture = 'none'
+        self.current_gesture_confidence = 0.0
         self.gesture_progress = 0.0
         self.last_confirmed_gesture = None
         self.last_frame_time = time.time()
@@ -304,11 +305,15 @@ class MorraCineseGame:
         
         if hands:
             hand = hands[0]
-            # Riconosci il gesto
-            self.current_gesture = self.hand_detector.recognize_gesture(
+            # Riconosci il gesto con confidenza
+            gesture, confidence = self.hand_detector.recognize_gesture(
                 hand['landmarks'],
                 self.current_frame.shape
             )
+            
+            # Applica smoothing temporale per ridurre jitter
+            self.current_gesture, self.current_gesture_confidence = \
+                self.hand_detector._apply_temporal_smoothing(gesture, confidence)
             
             # Durante il countdown, aggiorna la mossa immediatamente senza richiedere conferma
             if self.state_manager.current_state == GameState.COUNTDOWN:
@@ -337,6 +342,7 @@ class MorraCineseGame:
                 self._handle_confirmed_gesture(confirmed)
         else:
             self.current_gesture = 'none'
+            self.current_gesture_confidence = 0.0
             self.gesture_progress = 0.0
             self.hand_detector.reset_gesture_tracking()
     
@@ -344,14 +350,8 @@ class MorraCineseGame:
         """Gestisce un gesto confermato."""
         current_state = self.state_manager.current_state
         
-        # Navigazione nel menu (solo gesture down mantenuta)
-        if current_state == GameState.MENU:
-            if gesture == 'point_down':
-                self.state_manager.menu_down()
-                self.hand_detector.reset_gesture_tracking()
-        
         # Gioco
-        elif current_state == GameState.PLAYING:
+        if current_state == GameState.PLAYING:
             if gesture in ['rock', 'paper', 'scissors']:
                 self._process_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
@@ -367,15 +367,6 @@ class MorraCineseGame:
             if gesture in ['rock', 'paper', 'scissors']:
                 self._process_timed_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
-        
-        # Impostazioni - mantieni solo navigation down via gesture
-        elif current_state == GameState.SETTINGS:
-            if gesture == 'point_down':
-                self.screen_manager.settings_down()
-                self.hand_detector.reset_gesture_tracking()
-        
-        # Altri stati non supportano piu conferme tramite gesto
-        # (selezione/ok/conferma rimangono via tastiera/INVIO)
     
     def _process_player_move(self, gesture: str):
         """Processa la mossa del giocatore."""

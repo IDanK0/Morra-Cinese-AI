@@ -289,7 +289,7 @@ class ScreenManager:
         
         # Se modalità a tempo selezionata, mostra difficoltà
         if self.mode_selection == 1:
-            diff_y = start_y + len(self.mode_options) * 100 + 30
+            diff_y = start_y + len(self.mode_options) * 100 + 5
             
             self.renderer.draw_text(
                 "Seleziona Difficoltà:",
@@ -299,13 +299,15 @@ class ScreenManager:
                 center=True
             )
             
-            # Box difficoltà orizzontale
-            diff_start_x = SCREEN_WIDTH // 2 - 220
+            # Box difficoltà orizzontale - migliorato allineamento
+            total_width = len(self.difficulty_options) * 140  # Larghezza box singolo (120) + spacing (20)
+            diff_start_x = (SCREEN_WIDTH - total_width) // 2 + 70  # Centrato rispetto allo schermo
+            
             for i, diff in enumerate(self.difficulty_options):
                 selected_diff = i == self.difficulty_selection
-                x = diff_start_x + i * 150
+                x = diff_start_x + i * 140  # Box da 120px con 20px di spacing
                 
-                diff_box_rect = pygame.Rect(x - 60, diff_y + 25, 120, 70)
+                diff_box_rect = pygame.Rect(x - 60, diff_y + 30, 120, 75)
                 
                 if selected_diff:
                     glow = 0.5 + 0.3 * math.sin(self.animation_time * 4)
@@ -322,7 +324,7 @@ class ScreenManager:
                 label_color = COLORS['white'] if selected_diff else COLORS['gray']
                 self.renderer.draw_text(
                     diff['label'],
-                    (x, diff_y + 45),
+                    (x, diff_y + 50),
                     'small',
                     label_color,
                     center=True
@@ -332,7 +334,7 @@ class ScreenManager:
                 time_color = COLORS['success'] if selected_diff else COLORS['gray']
                 self.renderer.draw_text(
                     diff['time'],
-                    (x, diff_y + 70),
+                    (x, diff_y + 75),
                     'tiny',
                     time_color,
                     center=True

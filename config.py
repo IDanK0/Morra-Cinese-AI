@@ -172,6 +172,8 @@ class GameSettings:
         self.gesture_hold_time = GESTURE_HOLD_TIME
         self.countdown_time = COUNTDOWN_TIME
         self.camera_flip = CAMERA_FLIP
+        self.camera_index = CAMERA_INDEX
+        self.available_cameras = []  # Lista delle camera disponibili [(indice, nome)]
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
         # Modalità di gioco
@@ -183,6 +185,7 @@ class GameSettings:
         self.gesture_hold_time = GESTURE_HOLD_TIME
         self.countdown_time = COUNTDOWN_TIME
         self.camera_flip = CAMERA_FLIP
+        self.camera_index = CAMERA_INDEX
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
         self.game_mode = GameMode.CLASSIC
@@ -191,6 +194,13 @@ class GameSettings:
     def get_player_response_time(self) -> float:
         """Restituisce il tempo di risposta del giocatore per la difficoltà corrente."""
         return PLAYER_RESPONSE_TIMES.get(self.timed_difficulty, 4.0)
+    
+    def get_camera_name(self) -> str:
+        """Restituisce il nome della camera attualmente selezionata."""
+        for idx, name in self.available_cameras:
+            if idx == self.camera_index:
+                return name
+        return f"Camera {self.camera_index}"
 
 # Istanza globale delle impostazioni
 GAME_SETTINGS = GameSettings()

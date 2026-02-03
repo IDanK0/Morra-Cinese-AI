@@ -70,6 +70,7 @@ class ScreenManager:
         # Settings menu
         self.settings_selection = 0
         self.settings_options = [
+            {'key': 'camera_index', 'label': 'Camera', 'values': 'dynamic', 'unit': ''},
             {'key': 'gesture_hold_time', 'label': 'Tempo conferma gesto', 'values': [0.5, 0.75, 1.0, 1.25, 1.5], 'unit': 's'},
             {'key': 'countdown_time', 'label': 'Tempo countdown', 'values': [2, 3, 4, 5], 'unit': 's'},
             {'key': 'camera_flip', 'label': 'Specchia camera', 'values': [True, False], 'unit': ''},
@@ -77,6 +78,10 @@ class ScreenManager:
             {'key': 'reset_scores', 'label': 'Cancella classifica', 'values': ['action'], 'unit': ''},
             {'key': 'back', 'label': '<- Torna al menu', 'values': ['action'], 'unit': ''},
         ]
+        
+        # Camera error selection
+        self.camera_error_selection = 0
+        self.available_cameras = []  # Popolato quando si entra in CAMERA_ERROR
     
     def update(self, dt: float):
         """Aggiorna le animazioni e gli effetti."""
@@ -123,6 +128,8 @@ class ScreenManager:
             self._render_enter_name(frame)
         elif current_state == GameState.SETTINGS:
             self._render_settings(frame, detected_gesture)
+        elif current_state == GameState.CAMERA_ERROR:
+            self._render_camera_error()
         
         # Disegna particelle e overlay sopra tutto
         self.renderer.draw_particles()
@@ -1348,6 +1355,26 @@ class ScreenManager:
                     COLORS['danger'] if selected else COLORS['gray'],
                     center=True
                 )
+            elif option['key'] == 'camera_index':
+                # Mostra il nome della camera corrente
+                camera_name = GAME_SETTINGS.get_camera_name()
+                # Tronca il nome se troppo lungo
+                if len(camera_name) > 20:
+                    camera_name = camera_name[:17] + "..."
+                value_color = COLORS['secondary']
+                
+                # Frecce per navigazione
+                if selected:
+                    self.renderer.draw_text("<", (SCREEN_WIDTH // 2 + 50, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text(">", (SCREEN_WIDTH // 2 + 250, y), 'small', COLORS['white'], center=True)
+                
+                self.renderer.draw_text(
+                    camera_name,
+                    (SCREEN_WIDTH // 2 + 150, y),
+                    'small' if selected else 'tiny',
+                    value_color if selected else COLORS['gray'],
+                    center=True
+                )
             else:
                 current_value = getattr(GAME_SETTINGS, option['key'])
                 if isinstance(current_value, bool):
@@ -1404,7 +1431,7 @@ class ScreenManager:
         """Naviga giu' nelle impostazioni."""
         self.settings_selection = (self.settings_selection + 1) % len(self.settings_options)
     
-    def settings_change_value(self, direction: int) -> bool:
+    def settings_change_value(self, direction: int) -> Optional[int]:
         """
         Modifica il valore dell'impostazione selezionata.
         
@@ -1412,12 +1439,29 @@ class ScreenManager:
             direction: -1 per precedente, 1 per successivo
             
         Returns:
-            True se e' stata effettuata una modifica
+            Nuovo indice camera se cambiata, True se modificata altra impostazione, False altrimenti
         """
         option = self.settings_options[self.settings_selection]
         
         if option['key'] in ['back', 'reset_scores']:
             return False
+        
+        # Gestione speciale per camera (valori dinamici)
+        if option['key'] == 'camera_index':
+            cameras = GAME_SETTINGS.available_cameras
+            if not cameras:
+                return False
+            
+            current_idx = 0
+            for i, (idx, name) in enumerate(cameras):
+                if idx == GAME_SETTINGS.camera_index:
+                    current_idx = i
+                    break
+            
+            new_idx = (current_idx + direction) % len(cameras)
+            new_camera_index = cameras[new_idx][0]
+            GAME_SETTINGS.camera_index = new_camera_index
+            return new_camera_index  # Restituisce l'indice per cambio camera
         
         current_value = getattr(GAME_SETTINGS, option['key'])
         values = option['values']
@@ -1485,3 +1529,159 @@ class ScreenManager:
         filters = ['all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard']
         current_idx = filters.index(self.highscore_filter)
         self.highscore_filter = filters[(current_idx + 1) % len(filters)]
+    
+    # ==================
+    # CAMERA ERROR SCREEN
+    # ==================
+    
+    def set_available_cameras(self, cameras: list):
+        """
+        Imposta la lista delle camera disponibili.
+        
+        Args:
+            cameras: Lista di tuple (indice, nome)
+        """
+        self.available_cameras = cameras
+        self.camera_error_selection = 0
+    
+    def camera_error_up(self):
+        """Naviga su nella lista camera."""
+        if self.available_cameras:
+            self.camera_error_selection = (self.camera_error_selection - 1) % (len(self.available_cameras) + 1)
+        else:
+            self.camera_error_selection = 0
+    
+    def camera_error_down(self):
+        """Naviga giu' nella lista camera."""
+        if self.available_cameras:
+            self.camera_error_selection = (self.camera_error_selection + 1) % (len(self.available_cameras) + 1)
+        else:
+            self.camera_error_selection = 0
+    
+    def get_selected_camera_index(self) -> Optional[int]:
+        """
+        Restituisce l'indice della camera selezionata.
+        
+        Returns:
+            Indice della camera o None se selezionato 'Riprova'
+        """
+        if not self.available_cameras:
+            return None
+        
+        # L'ultima opzione è 'Aggiorna lista'
+        if self.camera_error_selection >= len(self.available_cameras):
+            return -1  # Indica 'Aggiorna lista'
+        
+        return self.available_cameras[self.camera_error_selection][0]
+    
+    def _render_camera_error(self):
+        """Renderizza la schermata di errore camera."""
+        # Sfondo rosso scuro
+        top_color = (50, 20, 20)
+        bottom_color = (30, 15, 15)
+        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        
+        # Icona e titolo errore
+        pulse = 0.7 + 0.3 * math.sin(self.animation_time * 4)
+        error_color = tuple(int(c * pulse) for c in COLORS['danger'])
+        
+        self.renderer.draw_text(
+            "[!] ERRORE CAMERA [!]",
+            (SCREEN_WIDTH // 2, 80),
+            'title',
+            error_color,
+            center=True,
+            shadow=True
+        )
+        
+        self.renderer.draw_text(
+            "La camera si è disconnessa o non è disponibile",
+            (SCREEN_WIDTH // 2, 140),
+            'medium',
+            COLORS['white'],
+            center=True
+        )
+        
+        # Box per selezione camera
+        box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 250, 180, 500, 320)
+        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], box_rect, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, COLORS['danger'], box_rect, width=3, border_radius=15)
+        
+        self.renderer.draw_text(
+            "Seleziona una camera:",
+            (SCREEN_WIDTH // 2, 210),
+            'medium',
+            COLORS['primary'],
+            center=True
+        )
+        
+        y = 260
+        
+        if self.available_cameras:
+            for i, (idx, name) in enumerate(self.available_cameras):
+                selected = i == self.camera_error_selection
+                
+                if selected:
+                    # Evidenzia selezione
+                    highlight_rect = pygame.Rect(SCREEN_WIDTH // 2 - 220, y - 8, 440, 36)
+                    pygame.draw.rect(self.renderer.screen, COLORS['primary'], highlight_rect, border_radius=8)
+                
+                # Tronca nome se troppo lungo
+                display_name = name if len(name) <= 35 else name[:32] + "..."
+                prefix = "> " if selected else "  "
+                
+                self.renderer.draw_text(
+                    prefix + display_name,
+                    (SCREEN_WIDTH // 2 - 200, y),
+                    'small',
+                    COLORS['white'] if selected else COLORS['gray']
+                )
+                y += 40
+            
+            # Opzione "Aggiorna lista"
+            selected = self.camera_error_selection >= len(self.available_cameras)
+            if selected:
+                highlight_rect = pygame.Rect(SCREEN_WIDTH // 2 - 220, y - 8, 440, 36)
+                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], highlight_rect, border_radius=8)
+            
+            self.renderer.draw_text(
+                "> [R] Aggiorna lista camera" if selected else "  [R] Aggiorna lista camera",
+                (SCREEN_WIDTH // 2 - 200, y),
+                'small',
+                COLORS['white'] if selected else COLORS['gray']
+            )
+        else:
+            self.renderer.draw_text(
+                "Nessuna camera trovata!",
+                (SCREEN_WIDTH // 2, y),
+                'medium',
+                COLORS['danger'],
+                center=True
+            )
+            y += 50
+            
+            self.renderer.draw_text(
+                "Collega una camera e premi [R] per aggiornare",
+                (SCREEN_WIDTH // 2, y),
+                'small',
+                COLORS['gray'],
+                center=True
+            )
+        
+        # Istruzioni in basso
+        self.renderer.draw_text(
+            "Su/Giu per selezionare | INVIO per confermare | R per aggiornare",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
+            'tiny',
+            COLORS['gray'],
+            center=True
+        )
+        
+        self.renderer.draw_text(
+            "ESC per continuare senza camera",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
+            'tiny',
+            COLORS['gray'],
+            center=True
+        )

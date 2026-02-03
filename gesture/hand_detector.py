@@ -476,6 +476,31 @@ class CameraManager:
     Gestisce l'accesso alla webcam.
     """
     
+    @staticmethod
+    def get_available_cameras(max_cameras: int = 10) -> list:
+        """
+        Rileva tutte le camera disponibili nel sistema.
+        
+        Args:
+            max_cameras: Numero massimo di camera da controllare
+            
+        Returns:
+            Lista di tuple (indice, nome) delle camera disponibili
+        """
+        available = []
+        for i in range(max_cameras):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                # Prova a leggere un frame per verificare che funzioni
+                ret, _ = cap.read()
+                if ret:
+                    # Ottieni il nome della camera se disponibile
+                    backend = cap.getBackendName()
+                    name = f"Camera {i} ({backend})"
+                    available.append((i, name))
+                cap.release()
+        return available
+    
     def __init__(self, camera_index: int = 0, width: int = 640, height: int = 480):
         """
         Inizializza la camera.
@@ -485,6 +510,9 @@ class CameraManager:
             width: Larghezza del frame
             height: Altezza del frame
         """
+        self.camera_index = camera_index
+        self.desired_width = width
+        self.desired_height = height
         self.cap = cv2.VideoCapture(camera_index)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -494,6 +522,8 @@ class CameraManager:
         
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.consecutive_failures = 0
+        self.max_failures = 10  # Dopo 10 frame falliti, considera la camera disconnessa
     
     def read(self, flip: bool = True) -> Tuple[bool, Optional[np.ndarray]]:
         """
@@ -507,10 +537,54 @@ class CameraManager:
         """
         ret, frame = self.cap.read()
         
-        if ret and flip:
-            frame = cv2.flip(frame, 1)
+        if ret:
+            self.consecutive_failures = 0
+            if flip:
+                frame = cv2.flip(frame, 1)
+        else:
+            self.consecutive_failures += 1
         
         return ret, frame
+    
+    def is_disconnected(self) -> bool:
+        """Verifica se la camera sembra essere disconnessa."""
+        return self.consecutive_failures >= self.max_failures or not self.cap.isOpened()
+    
+    def switch_camera(self, new_index: int) -> bool:
+        """
+        Cambia la camera attiva.
+        
+        Args:
+            new_index: Indice della nuova camera
+            
+        Returns:
+            True se il cambio è riuscito, False altrimenti
+        """
+        # Rilascia la camera attuale
+        self.cap.release()
+        
+        # Prova ad aprire la nuova camera
+        self.cap = cv2.VideoCapture(new_index)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.desired_width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.desired_height)
+        
+        if self.cap.isOpened():
+            self.camera_index = new_index
+            self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self.consecutive_failures = 0
+            return True
+        
+        return False
+    
+    def try_reconnect(self) -> bool:
+        """
+        Prova a riconnettere la camera attuale.
+        
+        Returns:
+            True se la riconnessione è riuscita, False altrimenti
+        """
+        return self.switch_camera(self.camera_index)
     
     def release(self):
         """Rilascia la camera."""

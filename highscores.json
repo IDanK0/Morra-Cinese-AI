@@ -61,6 +61,20 @@
       }
     },
     {
+      "name": "LLL",
+      "score": 1,
+      "date": "2026-02-03T13:45:18.553104",
+      "stats": {
+        "rounds_played": 2,
+        "player_wins": 1,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.5
+      },
+      "mode": "classic",
+      "difficulty": null
+    },
+    {
       "name": "MIN",
       "score": 0,
       "date": "2026-01-20T12:54:39.096477",
@@ -107,20 +121,6 @@
         "draws": 0,
         "win_rate": 0.0
       }
-    },
-    {
-      "name": "KKK",
-      "score": 0,
-      "date": "2026-02-03T13:38:15.843664",
-      "stats": {
-        "rounds_played": 1,
-        "player_wins": 0,
-        "cpu_wins": 1,
-        "draws": 0,
-        "win_rate": 0.0
-      },
-      "mode": "classic",
-      "difficulty": null
     }
   ]
 }

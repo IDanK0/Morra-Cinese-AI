@@ -21,6 +21,7 @@ class GameState(Enum):
     ENTER_NAME = auto()     # Inserimento nome per classifica
     SETTINGS = auto()       # Impostazioni
     PAUSED = auto()         # Gioco in pausa
+    CAMERA_ERROR = auto()   # Errore camera (disconnessa)
 
 
 class StateManager:

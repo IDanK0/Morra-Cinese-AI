@@ -61,12 +61,31 @@ class MorraCineseGame:
         self.gesture_progress = 0.0
         self.last_confirmed_gesture = None
         self.last_frame_time = time.time()
+        self.previous_state_before_camera_error = None  # Stato precedente prima dell'errore camera
     
     def _init_camera(self):
         """Inizializza la camera."""
+        # Rileva camera disponibili
+        print("Ricerca camera disponibili...")
+        available_cameras = CameraManager.get_available_cameras()
+        GAME_SETTINGS.available_cameras = available_cameras
+        
+        if available_cameras:
+            print(f"Trovate {len(available_cameras)} camera:")
+            for idx, name in available_cameras:
+                print(f"  - {name}")
+            
+            # Usa la camera configurata o la prima disponibile
+            camera_index = GAME_SETTINGS.camera_index
+            if camera_index not in [c[0] for c in available_cameras]:
+                camera_index = available_cameras[0][0]
+                GAME_SETTINGS.camera_index = camera_index
+        else:
+            camera_index = CAMERA_INDEX
+        
         try:
             self.camera = CameraManager(
-                camera_index=CAMERA_INDEX,
+                camera_index=camera_index,
                 width=CAMERA_WIDTH,
                 height=CAMERA_HEIGHT
             )
@@ -143,16 +162,16 @@ class MorraCineseGame:
     
     def _handle_key_event(self, event):
         """Gestisce gli eventi da tastiera."""
-        # ESC per uscire
-        if event.key == pygame.K_ESCAPE:
-            if self.state_manager.current_state == GameState.MENU:
+        current_state = self.state_manager.current_state
+        
+        # ESC per uscire (tranne in CAMERA_ERROR che ha gestione propria)
+        if event.key == pygame.K_ESCAPE and current_state != GameState.CAMERA_ERROR:
+            if current_state == GameState.MENU:
                 self.running = False
             else:
                 self.state_manager.change_state(GameState.MENU)
         
         # Controlli da tastiera per il menu (backup)
-        current_state = self.state_manager.current_state
-        
         if current_state == GameState.MENU:
             if event.key == pygame.K_UP:
                 self.state_manager.menu_up()
@@ -204,15 +223,50 @@ class MorraCineseGame:
             elif event.key == pygame.K_DOWN:
                 self.screen_manager.settings_down()
             elif event.key == pygame.K_LEFT:
-                self.screen_manager.settings_change_value(-1)
+                result = self.screen_manager.settings_change_value(-1)
+                if isinstance(result, int) and result >= 0:
+                    # Cambio camera richiesto
+                    self._switch_camera(result)
             elif event.key == pygame.K_RIGHT:
-                self.screen_manager.settings_change_value(1)
+                result = self.screen_manager.settings_change_value(1)
+                if isinstance(result, int) and result >= 0:
+                    # Cambio camera richiesto
+                    self._switch_camera(result)
             elif event.key == pygame.K_RETURN:
                 result = self.screen_manager.settings_select()
                 if result == 'back':
                     self.state_manager.change_state(GameState.MENU)
                 elif result == 'reset_scores':
                     self.highscore_manager.clear()
+        
+        elif current_state == GameState.CAMERA_ERROR:
+            if event.key == pygame.K_UP:
+                self.screen_manager.camera_error_up()
+            elif event.key == pygame.K_DOWN:
+                self.screen_manager.camera_error_down()
+            elif event.key == pygame.K_r:
+                # Aggiorna lista camera
+                self._refresh_available_cameras()
+            elif event.key == pygame.K_RETURN:
+                selected_idx = self.screen_manager.get_selected_camera_index()
+                if selected_idx == -1:
+                    # Aggiorna lista
+                    self._refresh_available_cameras()
+                elif selected_idx is not None:
+                    # Prova a connettersi alla camera selezionata
+                    if self._try_connect_camera(selected_idx):
+                        # Torna allo stato precedente o al menu
+                        if self.previous_state_before_camera_error:
+                            self.state_manager.change_state(self.previous_state_before_camera_error)
+                        else:
+                            self.state_manager.change_state(GameState.MENU)
+            elif event.key == pygame.K_ESCAPE:
+                # Continua senza camera
+                self.camera = None
+                if self.previous_state_before_camera_error:
+                    self.state_manager.change_state(self.previous_state_before_camera_error)
+                else:
+                    self.state_manager.change_state(GameState.MENU)
         
         elif current_state in [GameState.HIGHSCORE, GameState.GAME_OVER]:
             if event.key == pygame.K_LEFT:
@@ -224,6 +278,23 @@ class MorraCineseGame:
                     self._check_and_save_highscore()
                 else:
                     self.state_manager.change_state(GameState.MENU)
+    
+    def _switch_camera(self, camera_index: int):
+        """
+        Cambia la camera attiva nelle impostazioni.
+        
+        Args:
+            camera_index: Indice della nuova camera
+        """
+        if self.camera:
+            if self.camera.switch_camera(camera_index):
+                print(f"Camera cambiata a indice {camera_index}")
+            else:
+                print(f"Impossibile cambiare alla camera {camera_index}")
+                # Prova a ricreare la camera
+                self._try_connect_camera(camera_index)
+        else:
+            self._try_connect_camera(camera_index)
     
     def _handle_menu_selection(self):
         """Gestisce la selezione del menu."""
@@ -294,6 +365,64 @@ class MorraCineseGame:
             ret, frame = self.camera.read(flip=GAME_SETTINGS.camera_flip)
             if ret:
                 self.current_frame = frame
+            
+            # Controlla se la camera si è disconnessa
+            if self.camera.is_disconnected():
+                self._handle_camera_error()
+    
+    def _handle_camera_error(self):
+        """Gestisce l'errore di disconnessione camera."""
+        print("Errore: Camera disconnessa!")
+        
+        # Salva lo stato corrente per tornare dopo
+        if self.state_manager.current_state != GameState.CAMERA_ERROR:
+            self.previous_state_before_camera_error = self.state_manager.current_state
+        
+        # Aggiorna lista camera disponibili
+        self._refresh_available_cameras()
+        
+        # Vai allo stato di errore camera
+        self.state_manager.change_state(GameState.CAMERA_ERROR)
+    
+    def _refresh_available_cameras(self):
+        """Aggiorna la lista delle camera disponibili."""
+        # Rilascia la camera attuale se esiste
+        if self.camera:
+            self.camera.release()
+            self.camera = None
+        
+        # Cerca nuove camera
+        available_cameras = CameraManager.get_available_cameras()
+        GAME_SETTINGS.available_cameras = available_cameras
+        self.screen_manager.set_available_cameras(available_cameras)
+        
+        print(f"Camera disponibili: {len(available_cameras)}")
+        for idx, name in available_cameras:
+            print(f"  - {name}")
+    
+    def _try_connect_camera(self, camera_index: int) -> bool:
+        """
+        Prova a connettersi a una camera specifica.
+        
+        Args:
+            camera_index: Indice della camera
+            
+        Returns:
+            True se la connessione è riuscita
+        """
+        try:
+            self.camera = CameraManager(
+                camera_index=camera_index,
+                width=CAMERA_WIDTH,
+                height=CAMERA_HEIGHT
+            )
+            GAME_SETTINGS.camera_index = camera_index
+            print(f"Camera {camera_index} connessa con successo!")
+            return True
+        except RuntimeError as e:
+            print(f"Impossibile connettersi alla camera {camera_index}: {e}")
+            self.camera = None
+            return False
     
     def _update_gesture_detection(self):
         """Aggiorna il rilevamento dei gesti."""

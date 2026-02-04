@@ -15,42 +15,42 @@ echo   SETUP MORRA CINESE - PORTATILE
 echo ========================================
 echo.
 
-REM Verifica che Python sia installato
-python --version >nul 2>&1
+REM Verifica che Python 3.12 sia installato
+py -3.12 --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERRORE] Python non trovato!
+    echo [ERRORE] Python 3.12 non trovato!
     echo.
-    echo Scarica Python da: https://www.python.org/downloads/
+    echo Scarica Python 3.12 da: https://www.python.org/downloads/
     echo Assicurati di spuntare "Add Python to PATH" durante l'installazione.
     echo.
     pause
     exit /b 1
 )
 
-echo [OK] Python trovato
-python --version
+echo [OK] Python 3.12 trovato
+py -3.12 --version
 echo.
 
 REM Verifica che pip sia installato
-pip --version >nul 2>&1
+py -3.12 -m pip --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERRORE] pip non trovato!
+    echo [ERRORE] pip non trovato per Python 3.12!
     pause
     exit /b 1
 )
 
-echo [OK] pip trovato
+echo [OK] pip trovato per Python 3.12
 echo.
 
 REM Aggiorna pip
 echo Aggiornamento pip...
-python -m pip install --upgrade pip
+py -3.12 -m pip install --upgrade pip
 echo.
 
 REM Verifica e crea ambiente virtuale (opzionale)
 if not exist "venv" (
-    echo Creazione ambiente virtuale...
-    python -m venv venv
+    echo Creazione ambiente virtuale con Python 3.12...
+    py -3.12 -m venv venv
     echo [OK] Ambiente virtuale creato
     echo.
 )
@@ -82,6 +82,6 @@ echo.
 echo Prossimi step:
 echo 1. Esegui: run.bat
 echo 2. Oppure esegui manualmente:
-echo    python main.py
+echo    py -3.12 main.py
 echo.
 pause

@@ -50,7 +50,7 @@ echo.
 echo ========================================
 echo.
 
-python main.py
+py -3.12 main.py
 
 if %errorlevel% neq 0 (
     echo.

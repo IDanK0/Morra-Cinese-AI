@@ -37,6 +37,20 @@
       }
     },
     {
+      "name": "GIANE",
+      "score": 2,
+      "date": "2026-02-04T15:37:05.226330",
+      "stats": {
+        "rounds_played": 3,
+        "player_wins": 2,
+        "cpu_wins": 1,
+        "draws": 0,
+        "win_rate": 0.6666666666666666
+      },
+      "mode": "timed",
+      "difficulty": "medium"
+    },
+    {
       "name": "RER",
       "score": 1,
       "date": "2026-01-20T12:55:13.133961",
@@ -75,6 +89,20 @@
       "difficulty": null
     },
     {
+      "name": "PALLE",
+      "score": 1,
+      "date": "2026-02-04T15:36:18.517984",
+      "stats": {
+        "rounds_played": 3,
+        "player_wins": 1,
+        "cpu_wins": 1,
+        "draws": 1,
+        "win_rate": 0.3333333333333333
+      },
+      "mode": "classic",
+      "difficulty": null
+    },
+    {
       "name": "MIN",
       "score": 0,
       "date": "2026-01-20T12:54:39.096477",
@@ -90,30 +118,6 @@
       "name": "EAF",
       "score": 0,
       "date": "2026-01-20T12:54:49.260845",
-      "stats": {
-        "rounds_played": 1,
-        "player_wins": 0,
-        "cpu_wins": 1,
-        "draws": 0,
-        "win_rate": 0.0
-      }
-    },
-    {
-      "name": "GGG",
-      "score": 0,
-      "date": "2026-01-27T13:20:43.472880",
-      "stats": {
-        "rounds_played": 1,
-        "player_wins": 0,
-        "cpu_wins": 1,
-        "draws": 0,
-        "win_rate": 0.0
-      }
-    },
-    {
-      "name": "JJJ",
-      "score": 0,
-      "date": "2026-01-27T13:23:25.442910",
       "stats": {
         "rounds_played": 1,
         "player_wins": 0,

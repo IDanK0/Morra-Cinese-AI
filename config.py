@@ -78,27 +78,107 @@ DIFFICULTY_NAMES = {
 }
 
 # =====================
-# COLORI (RGB)
+# COLORI (RGB) - TEMA GAMING MODERNO
 # =====================
 COLORS = {
-    'background': (25, 25, 35),
-    'primary': (100, 149, 237),  # Cornflower blue
-    'secondary': (255, 165, 0),   # Orange
-    'success': (50, 205, 50),     # Lime green
-    'danger': (220, 20, 60),      # Crimson
+    # Sfondo e base
+    'background': (15, 15, 25),       # Blu scuro profondo
+    'bg_gradient_top': (25, 28, 50),  # Gradiente top
+    'bg_gradient_bottom': (10, 12, 22),# Gradiente bottom
+    'card_bg': (28, 32, 55),          # Sfondo cards
+    'card_bg_light': (38, 42, 70),    # Cards hover
+    
+    # Colori primari vivaci
+    'primary': (99, 102, 241),        # Indigo moderno
+    'primary_light': (129, 140, 248), # Indigo chiaro
+    'primary_dark': (67, 56, 202),    # Indigo scuro
+    'secondary': (251, 146, 60),      # Arancione caldo
+    'secondary_light': (253, 186, 116),# Arancione chiaro
+    'accent': (168, 85, 247),         # Viola accent
+    'accent_light': (192, 132, 252),  # Viola chiaro
+    
+    # Stati
+    'success': (34, 197, 94),         # Verde smeraldo
+    'success_light': (74, 222, 128),  # Verde chiaro
+    'success_glow': (22, 163, 74),    # Verde glow
+    'danger': (239, 68, 68),          # Rosso coral
+    'danger_light': (252, 129, 129),  # Rosso chiaro
+    'danger_glow': (220, 38, 38),     # Rosso glow
+    'warning': (250, 204, 21),        # Giallo dorato
+    'warning_light': (253, 224, 71),  # Giallo chiaro
+    
+    # Neutri
     'white': (255, 255, 255),
     'black': (0, 0, 0),
-    'gray': (128, 128, 128),
-    'light_gray': (200, 200, 200),
-    'dark_gray': (50, 50, 50),
-    'rock': (139, 90, 43),        # Marrone roccia
-    'paper': (245, 245, 220),     # Beige carta
-    'scissors': (192, 192, 192),  # Argento forbici
-    'gold': (255, 215, 0),        # Oro (primo posto)
-    'silver': (192, 192, 192),    # Argento (secondo posto)
-    'bronze': (205, 127, 50),     # Bronzo (terzo posto)
-    'glow_blue': (173, 216, 230), # Light blue per glow
-    'dark_blue': (10, 10, 20),    # Dark blue sfondo
+    'gray': (148, 163, 184),          # Grigio moderno
+    'light_gray': (226, 232, 240),    # Grigio chiaro
+    'dark_gray': (51, 65, 85),        # Grigio scuro
+    'muted': (100, 116, 139),         # Testo secondario
+    
+    # Mosse - Colori gaming vivaci
+    'rock': (239, 68, 68),            # Rosso potenza (Sasso)
+    'rock_light': (254, 202, 202),
+    'rock_bg': (127, 29, 29),
+    'paper': (59, 130, 246),          # Blu elegante (Carta)
+    'paper_light': (191, 219, 254),
+    'paper_bg': (30, 64, 175),
+    'scissors': (234, 179, 8),        # Oro metallico (Forbice)
+    'scissors_light': (254, 240, 138),
+    'scissors_bg': (161, 98, 7),
+    
+    # Medaglie
+    'gold': (255, 215, 0),            # Oro brillante
+    'gold_glow': (234, 179, 8),
+    'silver': (203, 213, 225),        # Argento moderno
+    'silver_glow': (148, 163, 184),
+    'bronze': (217, 119, 6),          # Bronzo caldo
+    'bronze_glow': (180, 83, 9),
+    
+    # Effetti speciali
+    'glow_blue': (96, 165, 250),      # Glow azzurro
+    'glow_purple': (168, 85, 247),    # Glow viola
+    'glow_pink': (236, 72, 153),      # Glow rosa
+    'neon_green': (74, 222, 128),     # Neon verde
+    'neon_cyan': (34, 211, 238),      # Neon ciano
+    
+    # UI specifica
+    'button_bg': (55, 48, 107),       # Sfondo bottoni
+    'button_hover': (79, 70, 138),    # Bottoni hover
+    'button_border': (99, 102, 241),  # Bordo bottoni
+    'input_bg': (30, 27, 60),         # Input background
+    'progress_bg': (30, 41, 59),      # Progress bar bg
+    'timer_critical': (239, 68, 68),  # Timer critico
+    'timer_warning': (251, 146, 60),  # Timer warning
+    'timer_safe': (34, 197, 94),      # Timer sicuro
+}
+
+# =====================
+# EMOJI / SIMBOLI UI
+# =====================
+UI_SYMBOLS = {
+    'rock': '✊',
+    'paper': '✋', 
+    'scissors': '✌️',
+    'trophy': '🏆',
+    'medal_gold': '🥇',
+    'medal_silver': '🥈',
+    'medal_bronze': '🥉',
+    'star': '⭐',
+    'fire': '🔥',
+    'crown': '👑',
+    'target': '🎯',
+    'gamepad': '🎮',
+    'settings': '⚙️',
+    'back': '←',
+    'next': '→',
+    'check': '✓',
+    'cross': '✗',
+    'timer': '⏱️',
+    'camera': '📷',
+    'warning': '⚠️',
+    'info': 'ℹ️',
+    'play': '▶',
+    'vs': '⚔️',
 }
 
 # =====================

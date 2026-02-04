@@ -1,5 +1,7 @@
 """
-Schermate del gioco
+Schermate del gioco - Design Moderno Gaming
+============================================
+Interfaccia utente riprogettata con stile professionale e carino.
 """
 
 import pygame
@@ -15,13 +17,14 @@ from ui.renderer import Renderer
 from config import (
     COLORS, SCREEN_WIDTH, SCREEN_HEIGHT, ROUNDS_TO_WIN, COUNTDOWN_TIME, 
     GAME_SETTINGS, GameMode, TimedDifficulty, DIFFICULTY_NAMES, 
-    CPU_MOVE_TIMER, PLAYER_RESPONSE_TIMES
+    CPU_MOVE_TIMER, PLAYER_RESPONSE_TIMES, UI_SYMBOLS
 )
 
 
 class ScreenManager:
     """
     Gestisce il rendering delle diverse schermate del gioco.
+    Design moderno con animazioni fluide e stile gaming.
     """
     
     def __init__(self, 
@@ -31,143 +34,89 @@ class ScreenManager:
                  highscore_manager: HighScoreManager):
         """
         Inizializza il gestore delle schermate.
-        
-        Args:
-            renderer: Renderer per il disegno
-            state_manager: Gestore degli stati
-            game_logic: Logica del gioco
-            highscore_manager: Gestore dei punteggi
         """
         self.renderer = renderer
         self.state = state_manager
         self.game = game_logic
         self.highscore = highscore_manager
         
-        # For name input
+        # Input nome
         self.input_name = ""
         self.cursor_blink_time = 0
         self._name_input_particles = False
         
-        # For highscore filtering
-        self.highscore_filter = 'all'  # 'all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard'
+        # Filtro highscore
+        self.highscore_filter = 'all'
         
-        # Animations
+        # Animazioni
         self.animation_time = 0
         
-        # Mode selection menu
-        self.mode_selection = 0  # 0 = Classica, 1 = A tempo
-        self.difficulty_selection = 1  # 0 = Facile, 1 = Media, 2 = Difficile
+        # Selezione menu
+        self.mode_selection = 0
+        self.difficulty_selection = 1
+        
         self.mode_options = [
-            {'key': 'classic', 'label': 'Modalità Classica', 'description': 'Gioca senza limiti di tempo'},
-            {'key': 'timed', 'label': 'Modalità A Tempo', 'description': 'Rispondi prima che scada il timer!'},
-        ]
-        self.difficulty_options = [
-            {'key': TimedDifficulty.EASY, 'label': 'Facile', 'time': '6 secondi'},
-            {'key': TimedDifficulty.MEDIUM, 'label': 'Media', 'time': '4 secondi'},
-            {'key': TimedDifficulty.HARD, 'label': 'Difficile', 'time': '2 secondi'},
+            {'key': 'classic', 'label': 'Classica', 'icon': '🎮', 'description': 'Gioca senza limiti di tempo'},
+            {'key': 'timed', 'label': 'A Tempo', 'icon': '⏱️', 'description': 'Rispondi prima che scada il timer!'},
         ]
         
-        # Settings menu
+        self.difficulty_options = [
+            {'key': TimedDifficulty.EASY, 'label': 'Facile', 'time': '6s', 'color': COLORS['success']},
+            {'key': TimedDifficulty.MEDIUM, 'label': 'Media', 'time': '4s', 'color': COLORS['warning']},
+            {'key': TimedDifficulty.HARD, 'label': 'Difficile', 'time': '2s', 'color': COLORS['danger']},
+        ]
+        
+        # Settings
         self.settings_selection = 0
         self.settings_options = [
             {'key': 'camera_index', 'label': 'Camera', 'values': 'dynamic', 'unit': ''},
-            {'key': 'refresh_cameras', 'label': '[R] Aggiorna lista camera', 'values': ['action'], 'unit': ''},
-            {'key': 'gesture_hold_time', 'label': 'Tempo conferma gesto', 'values': [0.5, 0.75, 1.0, 1.25, 1.5], 'unit': 's'},
-            {'key': 'countdown_time', 'label': 'Tempo countdown', 'values': [2, 3, 4, 5], 'unit': 's'},
-            {'key': 'camera_flip', 'label': 'Specchia camera', 'values': [True, False], 'unit': ''},
+            {'key': 'refresh_cameras', 'label': 'Aggiorna Camera', 'values': ['action'], 'unit': ''},
+            {'key': 'gesture_hold_time', 'label': 'Tempo Conferma', 'values': [0.5, 0.75, 1.0, 1.25, 1.5], 'unit': 's'},
+            {'key': 'countdown_time', 'label': 'Countdown', 'values': [2, 3, 4, 5], 'unit': 's'},
+            {'key': 'camera_flip', 'label': 'Specchia Camera', 'values': [True, False], 'unit': ''},
             {'key': 'show_fps', 'label': 'Mostra FPS', 'values': [True, False], 'unit': ''},
-            {'key': 'reset_scores', 'label': 'Cancella classifica', 'values': ['action'], 'unit': ''},
-            {'key': 'back', 'label': '<- Torna al menu', 'values': ['action'], 'unit': ''},
+            {'key': 'reset_scores', 'label': 'Cancella Classifica', 'values': ['action'], 'unit': ''},
+            {'key': 'back', 'label': 'Torna al Menu', 'values': ['action'], 'unit': ''},
         ]
         
-        # Flag per indicare che le camera sono state aggiornate
+        # Camera refresh
         self._cameras_refreshed = False
         self._cameras_refresh_time = 0
         
-        # Camera error selection
+        # Camera error
         self.camera_error_selection = 0
-        self.available_cameras = []  # Popolato quando si entra in CAMERA_ERROR
+        self.available_cameras = []
     
     def update(self, dt: float):
-        """Aggiorna le animazioni e gli effetti."""
+        """Aggiorna le animazioni."""
         self.animation_time += dt
         self.cursor_blink_time += dt
         self.renderer.update_particles(dt)
         self.renderer.apply_screen_overlay(dt)
     
     def _draw_no_camera_indicator(self, position: tuple, size: tuple):
-        """
-        Disegna un indicatore che mostra che la camera non è connessa.
-        Include un'animazione di "ricerca in corso".
-        
-        Args:
-            position: (x, y) centro del rettangolo
-            size: (width, height) dimensioni
-        """
+        """Disegna indicatore camera non connessa."""
         x, y = position
         w, h = size
         rect = pygame.Rect(x - w // 2, y - h // 2, w, h)
         
-        # Sfondo scuro
-        pygame.draw.rect(self.renderer.screen, (30, 30, 40), rect, border_radius=10)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], rect, border_radius=12)
         
-        # Bordo animato (pulsante giallo/arancione)
         pulse = 0.5 + 0.5 * math.sin(self.animation_time * 3)
-        border_color = (
-            int(200 * pulse + 55),
-            int(150 * pulse + 50),
-            30
-        )
-        pygame.draw.rect(self.renderer.screen, border_color, rect, width=2, border_radius=10)
+        border_color = tuple(int(c * (0.5 + 0.5 * pulse)) for c in COLORS['warning'])
+        pygame.draw.rect(self.renderer.screen, border_color, rect, width=2, border_radius=12)
         
-        # Icona camera con X
-        icon_size = min(w, h) // 3
-        icon_x = x
-        icon_y = y - 10
+        self.renderer.draw_text("CAM", (x, y - 15), 'large', COLORS['muted'], center=True)
         
-        # Disegna icona camera stilizzata
-        cam_rect = pygame.Rect(icon_x - icon_size // 2, icon_y - icon_size // 3, 
-                               icon_size, int(icon_size * 0.7))
-        pygame.draw.rect(self.renderer.screen, (100, 100, 100), cam_rect, border_radius=3)
-        
-        # Lente
-        lens_radius = icon_size // 4
-        pygame.draw.circle(self.renderer.screen, (70, 70, 70), 
-                          (icon_x, icon_y), lens_radius)
-        
-        # X rossa sopra
-        cross_size = icon_size // 2
-        pygame.draw.line(self.renderer.screen, (200, 60, 60),
-                        (icon_x - cross_size, icon_y - cross_size),
-                        (icon_x + cross_size, icon_y + cross_size), 3)
-        pygame.draw.line(self.renderer.screen, (200, 60, 60),
-                        (icon_x + cross_size, icon_y - cross_size),
-                        (icon_x - cross_size, icon_y + cross_size), 3)
-        
-        # Testo "Ricerca..."
         dots = "." * (int(self.animation_time * 2) % 4)
-        self.renderer.draw_text(
-            f"Ricerca{dots}",
-            (x, y + h // 3),
-            'tiny',
-            (180, 180, 100),
-            center=True
-        )
+        self.renderer.draw_text(f"Ricerca{dots}", (x, y + 25), 'tiny', COLORS['warning'], center=True)
     
     def render(self, 
                current_state: GameState,
                frame = None,
                detected_gesture: str = 'none',
                gesture_progress: float = 0.0):
-        """
-        Renderizza la schermata corrente.
-        
-        Args:
-            current_state: Stato corrente del gioco
-            frame: Frame della camera (opzionale)
-            detected_gesture: Gesto attualmente rilevato
-            gesture_progress: Progresso della conferma del gesto
-        """
+        """Renderizza la schermata corrente."""
         self.renderer.clear()
         
         if current_state == GameState.MENU:
@@ -195,1355 +144,808 @@ class ScreenManager:
         elif current_state == GameState.CAMERA_ERROR:
             self._render_camera_error()
         
-        # Disegna particelle e overlay sopra tutto
         self.renderer.draw_particles()
         self.renderer.apply_screen_overlay(0)
     
+    # =========================================================================
+    # MENU PRINCIPALE
+    # =========================================================================
+    
     def _render_menu(self, frame, gesture: str):
-        """Renderizza il menu principale con effetti migliorati."""
-        # Sfondo con gradiente
-        top_color = (30, 30, 50)
-        bottom_color = COLORS['background']
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        """Renderizza il menu principale."""
+        # Titolo con animazione
+        y_offset = int(8 * math.sin(self.animation_time * 1.5))
         
-        # Titolo con effetto pulsante
-        y_offset = int(10 * math.sin(self.animation_time * 2))
+        # Logo/Titolo principale
         self.renderer.draw_text(
             "MORRA CINESE",
-            (SCREEN_WIDTH // 2, 70 + y_offset),
-            'title',
+            (SCREEN_WIDTH // 2, 80 + y_offset),
+            'hero',
             COLORS['primary'],
             center=True,
-            shadow=True
+            shadow=True,
+            glow=True,
+            glow_color=COLORS['primary_light']
         )
         
         # Sottotitolo
         self.renderer.draw_text(
             "Portatile Interattiva",
-            (SCREEN_WIDTH // 2, 130),
+            (SCREEN_WIDTH // 2, 140),
             'medium',
             COLORS['secondary'],
             center=True
         )
         
-        # Decorazione: cerchi pulsanti
-        pulse_time = self.animation_time
-        self.renderer.draw_pulse_circle(
-            (SCREEN_WIDTH // 2 - 250, 70 + y_offset),
-            30, COLORS['primary'], pulse_time
-        )
-        self.renderer.draw_pulse_circle(
-            (SCREEN_WIDTH // 2 + 250, 70 + y_offset),
-            30, COLORS['secondary'], pulse_time + 0.3
-        )
+        # Decorazioni laterali animate
+        self._draw_menu_decorations()
         
-        # Feed camera (piccolo)
+        # Feed camera
         if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH - 120, 80),
-                (160, 120),
-                COLORS['primary']
-            )
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 100, 90), (140, 105), COLORS['primary'])
         else:
-            # Mostra indicatore "camera non connessa" con animazione di ricerca
-            self._draw_no_camera_indicator(
-                (SCREEN_WIDTH - 120, 80),
-                (160, 120)
-            )
+            self._draw_no_camera_indicator((SCREEN_WIDTH - 100, 90), (140, 105))
         
-        # Opzioni menu con effetti di glow
+        # Menu items
         menu_items = [
-            ('GIOCA', 'play'),
-            ('CLASSIFICA', 'highscore'),
-            ('IMPOSTAZIONI', 'settings'),
-            ('ESCI', 'exit')
+            ('GIOCA', 'play', COLORS['success']),
+            ('CLASSIFICA', 'trophy', COLORS['warning']),
+            ('IMPOSTAZIONI', 'settings', COLORS['accent']),
+            ('ESCI', 'exit', COLORS['danger'])
         ]
         
         start_y = 220
-        for i, (label, key) in enumerate(menu_items):
+        for i, (label, key, accent_color) in enumerate(menu_items):
             selected = i == self.state.menu_selection
             y = start_y + i * 70
             
-            # Effetto glow per pulsante selezionato
-            glow = 0.5 + 0.3 * math.sin(self.animation_time * 4) if selected else 0.0
-            
-            self.renderer.draw_glowing_button(
+            self.renderer.draw_modern_button(
                 label,
                 (SCREEN_WIDTH // 2, y),
-                (250, 55),
+                (280, 55),
                 selected,
-                glow
+                accent_color if selected else None
             )
         
-        # Istruzioni eleganti
+        # Istruzioni
         self.renderer.draw_text(
-            "Up Down per navigare  |  INVIO per selezionare",
+            "↑↓ Naviga  •  INVIO Seleziona",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50),
             'small',
-            COLORS['gray'],
+            COLORS['muted'],
             center=True
         )
         
         # Indicatore gesto
-        self.renderer.draw_gesture_indicator(
-            gesture, 1.0, 
-            (SCREEN_WIDTH - 120, SCREEN_HEIGHT - 80)
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 70))
+    
+    def _draw_menu_decorations(self):
+        """Disegna decorazioni animate per il menu."""
+        # Cerchi pulsanti decorativi
+        pulse = self.animation_time
+        
+        # Sinistra
+        self.renderer.draw_pulse_circle(
+            (60, 80),
+            25, COLORS['primary'], pulse
+        )
+        self.renderer.draw_pulse_circle(
+            (100, 120),
+            15, COLORS['secondary'], pulse + 0.5
+        )
+        
+        # Destra (sotto camera)
+        self.renderer.draw_pulse_circle(
+            (SCREEN_WIDTH - 50, SCREEN_HEIGHT - 100),
+            20, COLORS['accent'], pulse + 1.0
         )
     
+    # =========================================================================
+    # SELEZIONE MODALITA'
+    # =========================================================================
+    
     def _render_mode_select(self, frame, gesture: str):
-        """Renderizza la schermata di selezione modalità."""
-        # Sfondo con gradiente
-        top_color = (30, 40, 50)
-        bottom_color = COLORS['background']
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
+        """Renderizza la selezione modalità."""
         # Titolo
         y_offset = int(5 * math.sin(self.animation_time * 2))
         self.renderer.draw_text(
-            "SELEZIONA MODALITÀ",
-            (SCREEN_WIDTH // 2, 60 + y_offset),
+            "SELEZIONA MODALITA'",
+            (SCREEN_WIDTH // 2, 55 + y_offset),
             'title',
             COLORS['primary'],
             center=True,
             shadow=True
         )
         
-        # Feed camera (piccolo)
+        # Camera
         if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH - 120, 80),
-                (160, 120),
-                COLORS['primary']
-            )
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 100, 80), (140, 100), COLORS['primary'])
         else:
-            # Mostra indicatore "camera non connessa" con animazione di ricerca
-            self._draw_no_camera_indicator(
-                (SCREEN_WIDTH - 120, 80),
-                (160, 120)
-            )
+            self._draw_no_camera_indicator((SCREEN_WIDTH - 100, 80), (140, 100))
         
-        # Opzioni modalità
-        start_y = 150
+        # Cards modalità
+        card_width = 350
+        card_height = 90
+        start_y = 140
+        
         for i, option in enumerate(self.mode_options):
             selected = i == self.mode_selection
-            y = start_y + i * 100
+            y = start_y + i * (card_height + 20)
             
-            # Box modalità
-            box_width = 500
-            box_height = 80
-            box_rect = pygame.Rect(
-                SCREEN_WIDTH // 2 - box_width // 2,
-                y - 10,
-                box_width,
-                box_height
+            # Card
+            card_rect = self.renderer.draw_card(
+                (SCREEN_WIDTH // 2, y),
+                (card_width, card_height),
+                selected,
+                COLORS['primary'] if selected else None
             )
+            
+            # Icona
+            icon_x = card_rect.left + 50
+            self.renderer.draw_text(option['icon'], (icon_x, y), 'title', 
+                                   COLORS['secondary'] if selected else COLORS['muted'], center=True)
+            
+            # Testo
+            text_x = SCREEN_WIDTH // 2 + 20
+            self.renderer.draw_text(option['label'], (text_x, y - 12), 
+                                   'large' if selected else 'medium',
+                                   COLORS['white'] if selected else COLORS['gray'], center=True)
+            self.renderer.draw_text(option['description'], (text_x, y + 18), 
+                                   'small', COLORS['muted'], center=True)
+        
+        # Difficoltà (se modalità a tempo)
+        if self.mode_selection == 1:
+            self._draw_difficulty_selector(start_y + 2 * (card_height + 20) + 10)
+        
+        # Pulsante indietro
+        back_y = SCREEN_HEIGHT - 90
+        back_selected = False
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], 
+                        pygame.Rect(SCREEN_WIDTH // 2 - 100, back_y - 18, 200, 36), border_radius=10)
+        self.renderer.draw_text("← INDIETRO (ESC)", (SCREEN_WIDTH // 2, back_y), 
+                               'small', COLORS['muted'], center=True)
+        
+        # Istruzioni
+        self.renderer.draw_text(
+            "↑↓ Modalità  •  ←→ Difficoltà  •  INVIO Conferma",
+            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40),
+            'tiny',
+            COLORS['muted'],
+            center=True
+        )
+        
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 70))
+    
+    def _draw_difficulty_selector(self, y: int):
+        """Disegna il selettore difficoltà."""
+        self.renderer.draw_text("Difficoltà:", (SCREEN_WIDTH // 2, y), 'small', COLORS['secondary'], center=True)
+        
+        # Box difficoltà
+        box_width = 100
+        total_width = len(self.difficulty_options) * (box_width + 15) - 15
+        start_x = SCREEN_WIDTH // 2 - total_width // 2 + box_width // 2
+        box_y = y + 45
+        
+        for i, diff in enumerate(self.difficulty_options):
+            selected = i == self.difficulty_selection
+            x = start_x + i * (box_width + 15)
+            
+            # Box
+            box_rect = pygame.Rect(x - box_width // 2, box_y - 30, box_width, 60)
             
             if selected:
-                # Bordo glow animato
-                glow = 0.5 + 0.3 * math.sin(self.animation_time * 4)
-                glow_color = tuple(int(c * (0.3 + glow * 0.7)) for c in COLORS['primary'])
-                pygame.draw.rect(self.renderer.screen, glow_color, box_rect, border_radius=15)
-                border_color = COLORS['primary']
+                # Glow
+                glow_surf = pygame.Surface((box_width + 10, 70), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*diff['color'], 60), glow_surf.get_rect(), border_radius=12)
+                self.renderer.screen.blit(glow_surf, (box_rect.left - 5, box_rect.top - 5))
+                
+                pygame.draw.rect(self.renderer.screen, diff['color'], box_rect, border_radius=10)
             else:
-                pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], box_rect, border_radius=15)
-                border_color = COLORS['gray']
+                pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], box_rect, border_radius=10)
+                pygame.draw.rect(self.renderer.screen, COLORS['muted'], box_rect, width=1, border_radius=10)
             
-            pygame.draw.rect(self.renderer.screen, border_color, box_rect, width=3, border_radius=15)
-            
-            # Nome modalità
-            label_color = COLORS['white'] if selected else COLORS['gray']
-            self.renderer.draw_text(
-                option['label'],
-                (SCREEN_WIDTH // 2, y + 15),
-                'large' if selected else 'medium',
-                label_color,
-                center=True
-            )
-            
-            # Descrizione
-            desc_color = COLORS['secondary'] if selected else COLORS['gray']
-            self.renderer.draw_text(
-                option['description'],
-                (SCREEN_WIDTH // 2, y + 45),
-                'small',
-                desc_color,
-                center=True
-            )
+            # Testo
+            text_color = COLORS['white'] if selected else COLORS['gray']
+            self.renderer.draw_text(diff['label'], (x, box_y - 8), 'small', text_color, center=True)
+            self.renderer.draw_text(diff['time'], (x, box_y + 15), 'tiny', 
+                                   diff['color'] if selected else COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # GIOCO CLASSICO
+    # =========================================================================
+    
+    def _render_playing(self, frame, gesture: str, progress: float):
+        """Renderizza la schermata di gioco."""
+        # Punteggio
+        player_score, cpu_score = self.game.get_score()
+        self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
-        # Se modalità a tempo selezionata, mostra difficoltà
-        if self.mode_selection == 1:
-            diff_y = start_y + len(self.mode_options) * 100 + 5
-            
-            self.renderer.draw_text(
-                "Seleziona Difficoltà:",
-                (SCREEN_WIDTH // 2, diff_y),
-                'medium',
-                COLORS['secondary'],
-                center=True
-            )
-            
-            # Box difficoltà orizzontale - migliorato allineamento
-            total_width = len(self.difficulty_options) * 140  # Larghezza box singolo (120) + spacing (20)
-            diff_start_x = (SCREEN_WIDTH - total_width) // 2 + 70  # Centrato rispetto allo schermo
-            
-            for i, diff in enumerate(self.difficulty_options):
-                selected_diff = i == self.difficulty_selection
-                x = diff_start_x + i * 140  # Box da 120px con 20px di spacing
-                
-                diff_box_rect = pygame.Rect(x - 60, diff_y + 30, 120, 75)
-                
-                if selected_diff:
-                    glow = 0.5 + 0.3 * math.sin(self.animation_time * 4)
-                    glow_color = tuple(int(c * (0.3 + glow * 0.7)) for c in COLORS['secondary'])
-                    pygame.draw.rect(self.renderer.screen, glow_color, diff_box_rect, border_radius=10)
-                    border_color = COLORS['secondary']
-                else:
-                    pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], diff_box_rect, border_radius=10)
-                    border_color = COLORS['gray']
-                
-                pygame.draw.rect(self.renderer.screen, border_color, diff_box_rect, width=2, border_radius=10)
-                
-                # Nome difficoltà
-                label_color = COLORS['white'] if selected_diff else COLORS['gray']
-                self.renderer.draw_text(
-                    diff['label'],
-                    (x, diff_y + 50),
-                    'small',
-                    label_color,
-                    center=True
-                )
-                
-                # Tempo
-                time_color = COLORS['success'] if selected_diff else COLORS['gray']
-                self.renderer.draw_text(
-                    diff['time'],
-                    (x, diff_y + 75),
-                    'tiny',
-                    time_color,
-                    center=True
-                )
-        
-        # Pulsante Indietro
-        back_y = SCREEN_HEIGHT - 120
-        back_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, back_y - 15, 200, 45)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], back_rect, border_radius=10)
-        pygame.draw.rect(self.renderer.screen, COLORS['gray'], back_rect, width=2, border_radius=10)
-        self.renderer.draw_text(
-            "< INDIETRO (ESC)",
-            (SCREEN_WIDTH // 2, back_y + 5),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
+        # Feed camera
+        if frame is not None:
+            border_color = COLORS['success'] if gesture in ['rock', 'paper', 'scissors'] else COLORS['primary']
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10), 
+                                          (420, 315), border_color)
         
         # Istruzioni
-        self.renderer.draw_text(
-            "Up/Down per modalità | Left/Right per difficoltà | INVIO per giocare",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
+        if gesture in ['rock', 'paper', 'scissors']:
+            instruction = "Mantieni il gesto..."
+            color = COLORS['success']
+        else:
+            instruction = "Mostra Sasso, Carta o Forbice!"
+            color = COLORS['white']
+        
+        self.renderer.draw_text(instruction, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 110), 
+                               'medium', color, center=True)
         
         # Indicatore gesto
-        self.renderer.draw_gesture_indicator(
-            gesture, 1.0,
-            (SCREEN_WIDTH - 120, SCREEN_HEIGHT - 80)
-        )
-    
-    def _render_timed_cpu_move(self, frame):
-        """Renderizza la schermata quando la CPU sta scegliendo (modalità a tempo)."""
-        # Sfondo con gradiente
-        top_color = (40, 30, 50)
-        bottom_color = COLORS['background']
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
-        # Punteggio
-        player_score, cpu_score = self.game.get_score()
-        self.renderer.draw_score(
-            player_score, cpu_score,
-            (SCREEN_WIDTH // 2, 40)
-        )
-        
-        # Titolo
-        self.renderer.draw_text(
-            "MODALITÀ A TEMPO",
-            (SCREEN_WIDTH // 2, 90),
-            'medium',
-            COLORS['secondary'],
-            center=True
-        )
-        
-        # CPU sta pensando
-        remaining = self.state.get_remaining_time()
-        
-        # Animazione pensiero CPU
-        dots = "." * (int(self.animation_time * 3) % 4)
-        self.renderer.draw_text(
-            f"La CPU sta scegliendo{dots}",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60),
-            'large',
-            COLORS['primary'],
-            center=True
-        )
-        
-        # Timer countdown grande
-        timer_text = f"{remaining:.1f}"
-        pulse = 1.0 + 0.1 * math.sin(self.animation_time * 6)
-        self.renderer.draw_text(
-            timer_text,
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20),
-            'title',
-            COLORS['secondary'],
-            center=True,
-            shadow=True
-        )
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 70))
         
         # Barra progresso
-        bar_width = 400
-        bar_height = 20
-        bar_rect = pygame.Rect(
-            SCREEN_WIDTH // 2 - bar_width // 2,
-            SCREEN_HEIGHT // 2 + 80,
-            bar_width,
-            bar_height
-        )
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], bar_rect, border_radius=10)
-        
-        progress = remaining / CPU_MOVE_TIMER
-        if progress > 0:
-            progress_rect = pygame.Rect(
-                bar_rect.left,
-                bar_rect.top,
-                int(bar_rect.width * progress),
-                bar_height
-            )
-            pygame.draw.rect(self.renderer.screen, COLORS['primary'], progress_rect, border_radius=10)
-        
-        pygame.draw.rect(self.renderer.screen, COLORS['white'], bar_rect, width=2, border_radius=10)
-        
-        # Istruzioni
-        self.renderer.draw_text(
-            "Preparati a rispondere!",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80),
-            'medium',
-            COLORS['white'],
-            center=True
-        )
-        
-        # Difficoltà corrente
-        diff_name = DIFFICULTY_NAMES.get(GAME_SETTINGS.timed_difficulty, 'Media')
-        response_time = GAME_SETTINGS.get_player_response_time()
-        self.renderer.draw_text(
-            f"Difficoltà: {diff_name} ({response_time:.0f}s per rispondere)",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
-    
-    def _render_timed_player_turn(self, frame, gesture: str, progress: float):
-        """Renderizza la schermata quando è il turno del giocatore (modalità a tempo)."""
-        # Sfondo con gradiente - diventa rosso quando il tempo sta per scadere
-        remaining = self.state.get_remaining_time()
-        response_time = GAME_SETTINGS.get_player_response_time()
-        time_ratio = remaining / response_time
-        
-        if time_ratio < 0.3:
-            top_color = (80, 30, 30)
-            bottom_color = (50, 20, 20)
-        elif time_ratio < 0.5:
-            top_color = (60, 40, 30)
-            bottom_color = COLORS['background']
-        else:
-            top_color = COLORS['background']
-            bottom_color = (40, 40, 50)
-        
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
-        # Punteggio
-        player_score, cpu_score = self.game.get_score()
-        self.renderer.draw_score(
-            player_score, cpu_score,
-            (SCREEN_WIDTH // 2, 40)
-        )
-        
-        # Titolo urgenza
-        urgency_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['secondary']
-        self.renderer.draw_text(
-            "FAI LA TUA MOSSA!",
-            (SCREEN_WIDTH // 2, 80),
-            'large',
-            urgency_color,
-            center=True,
-            shadow=True
-        )
-        
-        # === MOSTRA LA MOSSA DELLA CPU ===
-        cpu_move = self.state.get_data('cpu_move')
-        move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
-        
-        # Box mossa CPU a sinistra
-        cpu_box_rect = pygame.Rect(30, 120, 160, 180)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], cpu_box_rect, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, COLORS['danger'], cpu_box_rect, width=3, border_radius=15)
-        
-        self.renderer.draw_text(
-            "CPU ha scelto:",
-            (110, 135),
-            'small',
-            COLORS['white'],
-            center=True
-        )
-        
-        # Icona mossa CPU
-        self.renderer.draw_move_icon_enhanced(
-            cpu_move,
-            (110, 210),
-            70,
-            background=False
-        )
-        
-        # Nome mossa CPU
-        self.renderer.draw_text(
-            move_names.get(cpu_move, '?'),
-            (110, 270),
-            'medium',
-            COLORS['danger'],
-            center=True
-        )
-        
-        # Feed camera (al centro, leggermente più piccolo)
-        if frame is not None:
-            border_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['primary']
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH // 2 + 40, SCREEN_HEIGHT // 2 + 10),
-                (300, 220),
-                border_color
-            )
-        
-        # Timer grande a destra
-        timer_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['success']
-        timer_text = f"{remaining:.1f}s"
-        self.renderer.draw_text(
-            timer_text,
-            (SCREEN_WIDTH - 70, 180),
-            'title',
-            timer_color,
-            center=True,
-            shadow=True
-        )
-        
-        self.renderer.draw_text(
-            "TEMPO",
-            (SCREEN_WIDTH - 70, 230),
-            'small',
-            timer_color,
-            center=True
-        )
-        
-        # Barra progresso tempo
-        bar_width = 300
-        bar_height = 25
-        bar_rect = pygame.Rect(
-            SCREEN_WIDTH // 2 - bar_width // 2 + 40,
-            SCREEN_HEIGHT - 130,
-            bar_width,
-            bar_height
-        )
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], bar_rect, border_radius=12)
-        
-        if time_ratio > 0:
-            progress_rect = pygame.Rect(
-                bar_rect.left,
-                bar_rect.top,
-                int(bar_rect.width * time_ratio),
-                bar_height
-            )
-            bar_color = COLORS['danger'] if time_ratio < 0.3 else (COLORS['secondary'] if time_ratio < 0.5 else COLORS['success'])
-            pygame.draw.rect(self.renderer.screen, bar_color, progress_rect, border_radius=12)
-        
-        pygame.draw.rect(self.renderer.screen, COLORS['white'], bar_rect, width=2, border_radius=12)
-        
-        # Mossa del giocatore mostrata (in basso a destra)
-        player_move = self.state.get_data('player_move')
-        if player_move:
-            # Box mossa giocatore
-            player_box_rect = pygame.Rect(SCREEN_WIDTH - 190, SCREEN_HEIGHT - 120, 160, 80)
-            pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], player_box_rect, border_radius=10)
-            pygame.draw.rect(self.renderer.screen, COLORS['success'], player_box_rect, width=2, border_radius=10)
-            
-            self.renderer.draw_text(
-                "Tua mossa:",
-                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 105),
-                'tiny',
-                COLORS['white'],
-                center=True
-            )
-            self.renderer.draw_text(
-                move_names.get(player_move, '?'),
-                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 70),
-                'medium',
-                COLORS['success'],
-                center=True
-            )
-        else:
-            # Indicatore attesa gesto
-            self.renderer.draw_text(
-                "In attesa del",
-                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 100),
-                'small',
-                COLORS['gray'],
-                center=True
-            )
-            self.renderer.draw_text(
-                "tuo gesto...",
-                (SCREEN_WIDTH - 110, SCREEN_HEIGHT - 75),
-                'small',
-                COLORS['gray'],
-                center=True
-            )
-        
-        # Istruzioni
-        self.renderer.draw_text(
-            "Mostra Sasso, Carta o Forbice! (o premi 1, 2, 3)",
-            (SCREEN_WIDTH // 2 - 50, SCREEN_HEIGHT - 40),
-            'small',
-            COLORS['white'],
-            center=True
-        )
-        
-        # Warning se tempo sta per scadere (lampeggiante in alto)
-        if time_ratio < 0.3:
-            flash = int(self.animation_time * 6) % 2
-            if flash:
-                self.renderer.draw_text(
-                    "⚠ SBRIGATI! ⚠",
-                    (SCREEN_WIDTH // 2, 115),
-                    'medium',
-                    COLORS['danger'],
-                    center=True
-                )
-    
-    def mode_up(self):
-        """Naviga su nelle modalità."""
-        self.mode_selection = (self.mode_selection - 1) % len(self.mode_options)
-    
-    def mode_down(self):
-        """Naviga giù nelle modalità."""
-        self.mode_selection = (self.mode_selection + 1) % len(self.mode_options)
-    
-    def difficulty_left(self):
-        """Seleziona difficoltà precedente."""
-        if self.mode_selection == 1:  # Solo se modalità a tempo
-            self.difficulty_selection = (self.difficulty_selection - 1) % len(self.difficulty_options)
-    
-    def difficulty_right(self):
-        """Seleziona difficoltà successiva."""
-        if self.mode_selection == 1:  # Solo se modalità a tempo
-            self.difficulty_selection = (self.difficulty_selection + 1) % len(self.difficulty_options)
-    
-    def get_selected_mode(self) -> GameMode:
-        """Restituisce la modalità selezionata."""
-        if self.mode_selection == 0:
-            return GameMode.CLASSIC
-        return GameMode.TIMED
-    
-    def get_selected_difficulty(self) -> TimedDifficulty:
-        """Restituisce la difficoltà selezionata."""
-        return self.difficulty_options[self.difficulty_selection]['key']
-
-    def _render_playing(self, frame, gesture: str, progress: float):
-        """Renderizza la schermata di gioco con effetti migliorati."""
-        # Sfondo con gradiente
-        top_color = COLORS['background']
-        bottom_color = (40, 40, 50)
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
-        # Punteggio con stile migliorato
-        player_score, cpu_score = self.game.get_score()
-        self.renderer.draw_score(
-            player_score, cpu_score,
-            (SCREEN_WIDTH // 2, 40)
-        )
-        
-        # Feed camera (grande) con bordo luminoso
-        if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2),
-                (400, 300),
-                COLORS['primary']
-            )
-        
-        # Istruzioni dinamiche
-        instruction_color = COLORS['secondary'] if gesture in ['rock', 'paper', 'scissors'] else COLORS['white']
-        self.renderer.draw_text(
-            "Fai il tuo gesto e mantienilo!",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 120),
-            'medium',
-            instruction_color,
-            center=True
-        )
-        
-        # Indicatore gesto attuale con effetto
-        if gesture in ['rock', 'paper', 'scissors']:
-            # Emetti particelle quando viene riconosciuto un gesto
-            if gesture != getattr(self, '_last_gesture', None):
-                self.renderer.emit_particles(
-                    SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80,
-                    count=8, color=COLORS['success']
-                )
-                self._last_gesture = gesture
-            
-            self.renderer.draw_gesture_indicator(
-                gesture, 1.0,
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80)
-            )
-        else:
-            self._last_gesture = None
-            self.renderer.draw_text(
-                "In attesa di gesto...",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80),
-                'small',
-                COLORS['gray'],
-                center=True
-            )
-        
-        # Barra di progresso con animazione
         if gesture in ['rock', 'paper', 'scissors'] and progress > 0:
-            bar_width = 300
-            bar_height = 20
-            bar_rect = pygame.Rect(
-                SCREEN_WIDTH // 2 - bar_width // 2,
-                SCREEN_HEIGHT - 40,
-                bar_width,
-                bar_height
+            bar_color = COLORS['success'] if progress > 0.6 else COLORS['secondary']
+            self.renderer.draw_progress_bar(
+                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
+                (350, 18),
+                progress,
+                bar_color
             )
-            pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], bar_rect, border_radius=10)
-            
-            if progress > 0:
-                progress_rect = pygame.Rect(
-                    bar_rect.left,
-                    bar_rect.top,
-                    int(bar_rect.width * progress),
-                    bar_height
-                )
-                color_progress = COLORS['secondary'] if progress < 0.5 else COLORS['success']
-                pygame.draw.rect(self.renderer.screen, color_progress, progress_rect, border_radius=10)
-            
-            pygame.draw.rect(self.renderer.screen, COLORS['white'], bar_rect, width=2, border_radius=10)
     
     def _render_countdown(self, frame):
         """Renderizza il countdown."""
         # Punteggio
         player_score, cpu_score = self.game.get_score()
-        self.renderer.draw_score(
-            player_score, cpu_score,
-            (SCREEN_WIDTH // 2, 40)
-        )
+        self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
-        # Feed camera (sfondo)
+        # Camera sfondo
         if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2),
-                (400, 300),
-                COLORS['secondary']
-            )
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), 
+                                          (380, 285), COLORS['secondary'])
         
-        # Numero countdown
+        # Countdown
         remaining = self.state.get_remaining_time()
         number = max(1, int(remaining) + 1)
+        self.renderer.draw_countdown(number, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
         
-        self.renderer.draw_countdown(
-            number,
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        )
-        
-        # Mossa del giocatore
+        # Mossa scelta
         player_move = self.state.get_data('player_move')
         if player_move:
+            move_names = {'rock': 'Sasso', 'paper': 'Carta', 'scissors': 'Forbice'}
             self.renderer.draw_text(
-                f"La tua mossa: {Move[player_move.upper()].get_italian_name()}",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80),
-                'medium',
-                COLORS['white'],
-                center=True
+                f"Tua mossa: {move_names.get(player_move, '?')}",
+                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
+                'medium', COLORS['white'], center=True
             )
     
-    def _render_result(self, frame):
-        """Renderizza il risultato del round con effetti migliorati."""
-        result = self.state.get_data('result')
-        is_timeout = self.state.get_data('timeout', False)
+    # =========================================================================
+    # MODALITA' A TEMPO
+    # =========================================================================
+    
+    def _render_timed_cpu_move(self, frame):
+        """Renderizza quando la CPU sceglie."""
+        # Punteggio
+        player_score, cpu_score = self.game.get_score()
+        self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
-        # Sfondo con gradiente dinamico
-        if result == 'player':
-            top_color = (30, 50, 30)
-            bottom_color = COLORS['success']
-        elif result == 'cpu' or result == 'timeout':
-            top_color = (50, 30, 30)
-            bottom_color = COLORS['danger']
-        else:
-            top_color = (40, 40, 40)
-            bottom_color = COLORS['secondary']
+        # Titolo
+        self.renderer.draw_text("MODALITA' A TEMPO", (SCREEN_WIDTH // 2, 90), 
+                               'medium', COLORS['secondary'], center=True)
         
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        # CPU pensa
+        remaining = self.state.get_remaining_time()
+        dots = "." * (int(self.animation_time * 3) % 4)
+        
+        # Box centrale
+        box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 - 80, 360, 160)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], box_rect, border_radius=20)
+        pygame.draw.rect(self.renderer.screen, COLORS['accent'], box_rect, width=2, border_radius=20)
+        
+        self.renderer.draw_text(f"La CPU sta scegliendo{dots}", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40), 
+                               'medium', COLORS['primary'], center=True)
+        
+        # Timer grande
+        self.renderer.draw_text(f"{remaining:.1f}", (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20), 
+                               'hero', COLORS['secondary'], center=True, shadow=True)
+        
+        # Barra progresso
+        progress = remaining / CPU_MOVE_TIMER
+        self.renderer.draw_timer_bar((SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 80), (320, 20), progress)
+        
+        # Istruzioni
+        self.renderer.draw_text("Preparati a rispondere!", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60), 
+                               'medium', COLORS['white'], center=True)
+        
+        diff_name = DIFFICULTY_NAMES.get(GAME_SETTINGS.timed_difficulty, 'Media')
+        response_time = GAME_SETTINGS.get_player_response_time()
+        self.renderer.draw_text(f"Difficoltà: {diff_name} • {response_time:.0f}s per rispondere", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 
+                               'tiny', COLORS['muted'], center=True)
+    
+    def _render_timed_player_turn(self, frame, gesture: str, progress: float):
+        """Renderizza il turno del giocatore (modalità a tempo)."""
+        remaining = self.state.get_remaining_time()
+        response_time = GAME_SETTINGS.get_player_response_time()
+        time_ratio = remaining / response_time
         
         # Punteggio
         player_score, cpu_score = self.game.get_score()
-        self.renderer.draw_score(
-            player_score, cpu_score,
-            (SCREEN_WIDTH // 2, 40)
-        )
+        self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
-        # Risultato
-        player_move = self.state.get_data('player_move')
+        # Titolo urgenza
+        if time_ratio < 0.3:
+            title_color = COLORS['danger']
+            flash = int(self.animation_time * 6) % 2
+            if flash:
+                self.renderer.draw_text("SBRIGATI!", (SCREEN_WIDTH // 2, 85), 
+                                       'large', COLORS['danger'], center=True, glow=True)
+        else:
+            title_color = COLORS['secondary']
+        
+        self.renderer.draw_text("FAI LA TUA MOSSA!", (SCREEN_WIDTH // 2, 85), 
+                               'large', title_color, center=True)
+        
+        # Box mossa CPU (sinistra)
         cpu_move = self.state.get_data('cpu_move')
+        cpu_box = pygame.Rect(25, 115, 150, 170)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], cpu_box, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, COLORS['danger'], cpu_box, width=2, border_radius=15)
         
-        # Badge round con stile esagonale
-        round_num = self.game.round_count
-        self.renderer.draw_round_badge(
-            round_num,
-            (SCREEN_WIDTH // 2, 85),
-            COLORS['primary']
-        )
+        self.renderer.draw_text("CPU:", (100, 130), 'small', COLORS['danger'], center=True)
+        self.renderer.draw_move_icon(cpu_move, (100, 200), 70, background=False)
         
-        # Determina colori in base al risultato
-        if result == 'player':
-            player_border_color = COLORS['success']
-            cpu_border_color = COLORS['danger']
-            outcome_color = COLORS['success']
-        elif result == 'cpu' or result == 'timeout':
-            player_border_color = COLORS['danger']
-            cpu_border_color = COLORS['success']
-            outcome_color = COLORS['danger']
-        else:
-            player_border_color = COLORS['secondary']
-            cpu_border_color = COLORS['secondary']
-            outcome_color = COLORS['secondary']
-        
-        # Box giocatore con effetto
-        player_box_rect = pygame.Rect(SCREEN_WIDTH // 4 - 100, SCREEN_HEIGHT // 2 - 130, 200, 220)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], player_box_rect, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, player_border_color, player_box_rect, width=4, border_radius=15)
-        
-        self.renderer.draw_text(
-            "TU",
-            (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 100),
-            'medium',
-            player_border_color,
-            center=True
-        )
-        
-        # Gestione timeout - mostra messaggio speciale
-        if is_timeout:
-            # Mostra X o messaggio di timeout invece dell'icona
-            self.renderer.draw_text(
-                "TEMPO",
-                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 30),
-                'large',
-                COLORS['danger'],
-                center=True
-            )
-            self.renderer.draw_text(
-                "SCADUTO!",
-                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 10),
-                'large',
-                COLORS['danger'],
-                center=True
-            )
-            self.renderer.draw_text(
-                "Nessuna mossa",
-                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
-                'small',
-                COLORS['gray'],
-                center=True
-            )
-        else:
-            # Usa le nuove icone migliorate
-            self.renderer.draw_move_icon_enhanced(
-                player_move,
-                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
-                100,
-                background=False
-            )
-            
-            # Nome mossa giocatore
-            move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
-            self.renderer.draw_text(
-                move_names.get(player_move, '?'),
-                (SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
-                'small',
-                COLORS['white'],
-                center=True
-            )
-        
-        # VS animato con pulsazione
-        vs_offset = int(5 * math.sin(self.animation_time * 4))
-        vs_scale = 1.0 + 0.1 * math.sin(self.animation_time * 3)
-        self.renderer.draw_text(
-            "VS",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20 + vs_offset),
-            'title',
-            outcome_color,
-            center=True,
-            shadow=True
-        )
-        
-        # Box CPU con indicazione chiara
-        cpu_box_rect = pygame.Rect(3 * SCREEN_WIDTH // 4 - 100, SCREEN_HEIGHT // 2 - 130, 200, 220)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], cpu_box_rect, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, cpu_border_color, cpu_box_rect, width=4, border_radius=15)
-        
-        self.renderer.draw_text(
-            "IA",
-            (3 * SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 100),
-            'medium',
-            cpu_border_color,
-            center=True
-        )
-        
-        # Usa le nuove icone migliorate
         move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
-        self.renderer.draw_move_icon_enhanced(
-            cpu_move,
-            (3 * SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 - 20),
-            100,
-            background=False
-        )
+        self.renderer.draw_text(move_names.get(cpu_move, '?'), (100, 260), 
+                               'small', COLORS['danger'], center=True)
         
-        # Nome mossa CPU
-        self.renderer.draw_text(
-            move_names.get(cpu_move, '?'),
-            (3 * SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2 + 60),
-            'small',
-            COLORS['white'],
-            center=True
-        )
+        # Camera centrale
+        if frame is not None:
+            border_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['primary']
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10), 
+                                          (320, 240), border_color)
         
-        # Banner risultato migliorato con particelle
-        if result:
-            # Gestione timeout nel banner
-            if is_timeout:
-                self.renderer.draw_text(
-                    "TEMPO SCADUTO!",
-                    (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100),
-                    'large',
-                    COLORS['danger'],
-                    center=True,
-                    shadow=True
-                )
-                self.renderer.draw_text(
-                    "Non hai fatto la mossa in tempo!",
-                    (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
-                    'medium',
-                    COLORS['white'],
-                    center=True
-                )
-            else:
-                self.renderer.draw_result_banner_improved(
-                    result, player_move, cpu_move,
-                    SCREEN_HEIGHT - 80
-                )
-            
-            # Emetti particelle di celebrazione
-            if result == 'player':
-                for _ in range(2):
-                    x = SCREEN_WIDTH // 4 + random.randint(-50, 50)
-                    y = SCREEN_HEIGHT // 2
-                    self.renderer.emit_particles(x, y, count=10, color=COLORS['success'], lifetime=1.5)
+        # Timer (destra)
+        timer_color = COLORS['danger'] if time_ratio < 0.3 else COLORS['success']
+        timer_box = pygame.Rect(SCREEN_WIDTH - 120, 115, 95, 100)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], timer_box, border_radius=12)
+        pygame.draw.rect(self.renderer.screen, timer_color, timer_box, width=2, border_radius=12)
+        
+        self.renderer.draw_text(f"{remaining:.1f}", (SCREEN_WIDTH - 72, 155), 
+                               'title', timer_color, center=True)
+        self.renderer.draw_text("sec", (SCREEN_WIDTH - 72, 195), 'tiny', timer_color, center=True)
+        
+        # Barra tempo
+        self.renderer.draw_timer_bar((SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT - 100), (320, 22), time_ratio)
+        
+        # Mossa giocatore (se rilevata)
+        player_move = self.state.get_data('player_move')
+        if player_move:
+            self.renderer.draw_text(f"Tua mossa: {move_names.get(player_move, '?')}", 
+                                   (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60), 
+                                   'medium', COLORS['success'], center=True)
+        else:
+            self.renderer.draw_text("Mostra il tuo gesto!", 
+                                   (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60), 
+                                   'small', COLORS['gray'], center=True)
+        
+        # Istruzioni
+        self.renderer.draw_text("Sasso, Carta, Forbice (o 1, 2, 3)", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 
+                               'tiny', COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # RISULTATO
+    # =========================================================================
+    
+    def _render_result(self, frame):
+        """Renderizza il risultato del round."""
+        result = self.state.get_data('result')
+        is_timeout = self.state.get_data('timeout', False)
+        
+        # Punteggio
+        player_score, cpu_score = self.game.get_score()
+        self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
+        
+        # Round badge
+        round_num = self.game.round_count
+        self.renderer.draw_round_badge(round_num, (SCREEN_WIDTH // 2, 100), COLORS['primary'])
+        
+        # Determina colori
+        if result == 'player':
+            player_color = COLORS['success']
+            cpu_color = COLORS['danger']
+        elif result == 'cpu' or result == 'timeout':
+            player_color = COLORS['danger']
+            cpu_color = COLORS['success']
+        else:
+            player_color = COLORS['warning']
+            cpu_color = COLORS['warning']
+        
+        # Box giocatore
+        player_box = pygame.Rect(SCREEN_WIDTH // 4 - 90, 150, 180, 200)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], player_box, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, player_color, player_box, width=3, border_radius=15)
+        
+        self.renderer.draw_text("TU", (SCREEN_WIDTH // 4, 170), 'medium', player_color, center=True)
+        
+        player_move = self.state.get_data('player_move')
+        move_names = {'rock': 'SASSO', 'paper': 'CARTA', 'scissors': 'FORBICE'}
+        
+        if is_timeout:
+            self.renderer.draw_text("TEMPO", (SCREEN_WIDTH // 4, 240), 'large', COLORS['danger'], center=True)
+            self.renderer.draw_text("SCADUTO", (SCREEN_WIDTH // 4, 280), 'medium', COLORS['danger'], center=True)
+        else:
+            self.renderer.draw_move_icon(player_move, (SCREEN_WIDTH // 4, 250), 80, background=False)
+            self.renderer.draw_text(move_names.get(player_move, '?'), (SCREEN_WIDTH // 4, 320), 
+                                   'small', COLORS['white'], center=True)
+        
+        # VS
+        vs_offset = int(5 * math.sin(self.animation_time * 4))
+        self.renderer.draw_text("VS", (SCREEN_WIDTH // 2, 250 + vs_offset), 
+                               'title', COLORS['accent'], center=True, shadow=True)
+        
+        # Box CPU
+        cpu_box = pygame.Rect(3 * SCREEN_WIDTH // 4 - 90, 150, 180, 200)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], cpu_box, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, cpu_color, cpu_box, width=3, border_radius=15)
+        
+        self.renderer.draw_text("CPU", (3 * SCREEN_WIDTH // 4, 170), 'medium', cpu_color, center=True)
+        
+        cpu_move = self.state.get_data('cpu_move')
+        self.renderer.draw_move_icon(cpu_move, (3 * SCREEN_WIDTH // 4, 250), 80, background=False)
+        self.renderer.draw_text(move_names.get(cpu_move, '?'), (3 * SCREEN_WIDTH // 4, 320), 
+                               'small', COLORS['white'], center=True)
+        
+        # Banner risultato
+        if is_timeout:
+            self.renderer.draw_text("TEMPO SCADUTO!", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100), 
+                                   'large', COLORS['danger'], center=True, shadow=True)
+            self.renderer.draw_text("Non hai fatto la mossa in tempo!", 
+                                   (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60), 
+                                   'small', COLORS['white'], center=True)
+        else:
+            self.renderer.draw_result_banner_improved(result, player_move, cpu_move, SCREEN_HEIGHT - 80)
+    
+    # =========================================================================
+    # GAME OVER
+    # =========================================================================
     
     def _render_game_over(self, frame):
-        """Renderizza la schermata di fine partita con effetti spettacolari."""
-        # Sfondo con gradiente drammatico
-        top_color = (80, 30, 30)
-        bottom_color = (30, 30, 30)
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
+        """Renderizza il game over."""
         player_score, cpu_score = self.game.get_score()
         
-        # Emetti particelle di esplosione al primo render
+        # Effetto particelle
         if not hasattr(self, '_game_over_particles_emitted'):
-            self.renderer.emit_particles(
-                SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3,
-                count=30, color=COLORS['danger'], lifetime=2.0, velocity_range=8.0
-            )
+            self.renderer.emit_confetti(SCREEN_WIDTH // 2, 150, 40)
             self._game_over_particles_emitted = True
         
-        # Titolo con flash
-        title = "GAME OVER"
-        self.renderer.draw_text(
-            title,
-            (SCREEN_WIDTH // 2, 80),
-            'title',
-            COLORS['danger'],
-            center=True,
-            shadow=True
-        )
+        # Titolo
+        self.renderer.draw_text("GAME OVER", (SCREEN_WIDTH // 2, 70), 
+                               'hero', COLORS['danger'], center=True, shadow=True, glow=True)
         
-        self.renderer.draw_text(
-            "Hai perso! La tua serie e' terminata.",
-            (SCREEN_WIDTH // 2, 140),
-            'medium',
-            COLORS['white'],
-            center=True
-        )
+        self.renderer.draw_text("La tua serie è terminata!", (SCREEN_WIDTH // 2, 130), 
+                               'medium', COLORS['white'], center=True)
         
-        # Punteggio (vittorie consecutive) con enfasi
-        self.renderer.draw_text(
-            f"VITTORIE CONSECUTIVE: {player_score}",
-            (SCREEN_WIDTH // 2, 200),
-            'large',
-            COLORS['secondary'],
-            center=True
-        )
+        # Punteggio grande
+        score_box = pygame.Rect(SCREEN_WIDTH // 2 - 150, 160, 300, 80)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], score_box, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, COLORS['secondary'], score_box, width=2, border_radius=15)
         
-        # Statistiche dettagliate con miglior design
+        self.renderer.draw_text("VITTORIE CONSECUTIVE", (SCREEN_WIDTH // 2, 180), 
+                               'small', COLORS['secondary'], center=True)
+        self.renderer.draw_text(str(player_score), (SCREEN_WIDTH // 2, 218), 
+                               'title', COLORS['white'], center=True)
+        
+        # Statistiche
         stats = self.game.get_stats()
-        stats_y = 280
+        stats_box = pygame.Rect(SCREEN_WIDTH // 2 - 180, 260, 360, 140)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], stats_box, border_radius=15)
+        pygame.draw.rect(self.renderer.screen, COLORS['primary'], stats_box, width=2, border_radius=15)
         
-        # Box statistiche con bordo luminoso
-        stats_rect = pygame.Rect(SCREEN_WIDTH // 2 - 200, stats_y - 20, 400, 160)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], stats_rect, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, COLORS['primary'], stats_rect, width=3, border_radius=15)
+        self.renderer.draw_text("STATISTICHE", (SCREEN_WIDTH // 2, 280), 
+                               'medium', COLORS['primary'], center=True)
         
-        self.renderer.draw_text(
-            "[STAT] STATISTICHE",
-            (SCREEN_WIDTH // 2, stats_y + 10),
-            'medium',
-            COLORS['primary'],
-            center=True
-        )
-        
-        self.renderer.draw_text(
-            f"Round giocati: {stats['rounds_played']}",
-            (SCREEN_WIDTH // 2, stats_y + 50),
-            'small',
-            COLORS['white'],
-            center=True
-        )
-        
-        self.renderer.draw_text(
-            f"Vittorie: {stats['player_wins']}  |  Pareggi: {stats['draws']}",
-            (SCREEN_WIDTH // 2, stats_y + 85),
-            'small',
-            COLORS['success'],
-            center=True
-        )
+        self.renderer.draw_text(f"Round: {stats['rounds_played']}", (SCREEN_WIDTH // 2, 315), 
+                               'small', COLORS['white'], center=True)
+        self.renderer.draw_text(f"Vittorie: {stats['player_wins']}  •  Pareggi: {stats['draws']}", 
+                               (SCREEN_WIDTH // 2, 345), 'small', COLORS['success'], center=True)
         
         win_rate = stats.get('win_rate', 0) * 100
         win_color = COLORS['success'] if win_rate > 50 else COLORS['danger']
-        self.renderer.draw_text(
-            f"Tasso vittoria: {win_rate:.1f}%",
-            (SCREEN_WIDTH // 2, stats_y + 120),
-            'small',
-            win_color,
-            center=True
-        )
+        self.renderer.draw_text(f"Tasso vittoria: {win_rate:.1f}%", (SCREEN_WIDTH // 2, 375), 
+                               'small', win_color, center=True)
         
-        # Messaggio per highscore con effetto glow
+        # Highscore
         if self.highscore.is_high_score(player_score):
-            # Particelle di celebrazione
-            if not hasattr(self, '_highscore_particles'):
-                self.renderer.emit_particles(
-                    SCREEN_WIDTH // 2, SCREEN_HEIGHT - 120,
-                    count=20, color=COLORS['success'], lifetime=2.0, velocity_range=5.0
-                )
-                self._highscore_particles = True
-            
-            self.renderer.draw_text(
-                "* NUOVO RECORD! Entrerai in classifica! *",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 120),
-                'medium',
-                COLORS['success'],
-                center=True
-            )
+            pulse = 0.5 + 0.5 * math.sin(self.animation_time * 5)
+            glow_color = tuple(int(c * pulse) for c in COLORS['success'])
+            self.renderer.draw_text("★ NUOVO RECORD! ★", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100), 
+                                   'large', COLORS['success'], center=True, glow=True)
         
-        # Istruzioni
-        self.renderer.draw_text(
-            "Premi INVIO per continuare",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
-            'medium',
-            COLORS['white'],
-            center=True
-        )
+        # Continua
+        self.renderer.draw_text("Premi INVIO per continuare", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50), 
+                               'medium', COLORS['white'], center=True)
+    
+    # =========================================================================
+    # CLASSIFICA
+    # =========================================================================
     
     def _render_highscore(self, frame, gesture: str):
-        """Renderizza la classifica con filtri per modalità."""
-        # Sfondo con gradiente
-        top_color = (30, 35, 50)
-        bottom_color = COLORS['background']
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        """Renderizza la classifica."""
+        # Titolo
+        self.renderer.draw_text("CLASSIFICA", (SCREEN_WIDTH // 2, 35), 
+                               'title', COLORS['primary'], center=True, shadow=True)
         
-        # Titolo con effetto pulsante
-        self.renderer.draw_text(
-            "[TROPHY] CLASSIFICA [TROPHY]",
-            (SCREEN_WIDTH // 2, 30),
-            'title',
-            COLORS['primary'],
-            center=True,
-            shadow=True
-        )
-        
-        # Tab per filtrare modalità
-        tab_y = 80
+        # Tab filtri
         tabs = [
-            {'id': 'all', 'label': 'TUTTE'},
-            {'id': 'classic', 'label': 'CLASSICA'},
-            {'id': 'timed_easy', 'label': 'FACILE'},
-            {'id': 'timed_medium', 'label': 'MEDIA'},
-            {'id': 'timed_hard', 'label': 'DIFFICILE'}
+            ('all', 'TUTTE'),
+            ('classic', 'CLASSICA'),
+            ('timed_easy', 'FACILE'),
+            ('timed_medium', 'MEDIA'),
+            ('timed_hard', 'DIFFICILE')
         ]
         
-        tab_width = 140
-        total_tabs_width = len(tabs) * tab_width
-        start_x = (SCREEN_WIDTH - total_tabs_width) // 2 + tab_width // 2
+        tab_width = 130
+        start_x = SCREEN_WIDTH // 2 - (len(tabs) * tab_width) // 2 + tab_width // 2
+        tab_y = 75
         
-        for i, tab in enumerate(tabs):
+        for i, (filter_id, label) in enumerate(tabs):
             x = start_x + i * tab_width
-            is_selected = self.highscore_filter == tab['id']
+            selected = self.highscore_filter == filter_id
             
-            # Box tab
-            tab_rect = pygame.Rect(x - 65, tab_y - 8, 130, 30)
-            if is_selected:
-                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], tab_rect, border_radius=5)
-                text_color = COLORS['white']
+            tab_rect = pygame.Rect(x - 60, tab_y - 12, 120, 28)
+            if selected:
+                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], tab_rect, border_radius=8)
             else:
-                pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], tab_rect, border_radius=5)
-                text_color = COLORS['gray']
+                pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], tab_rect, border_radius=8)
             
-            pygame.draw.rect(self.renderer.screen, COLORS['gray'], tab_rect, width=1, border_radius=5)
-            
-            # Testo tab
-            self.renderer.draw_text(
-                tab['label'],
-                (x, tab_y + 5),
-                'tiny',
-                text_color,
-                center=True
-            )
+            self.renderer.draw_text(label, (x, tab_y), 'tiny', 
+                                   COLORS['white'] if selected else COLORS['muted'], center=True)
         
-        # Filtra punteggi in base al tab selezionato
+        # Filtra punteggi
         if self.highscore_filter == 'all':
             scores = self.highscore.get_scores()
-            subtitle = "Tutte le Modalità"
         elif self.highscore_filter == 'classic':
             scores = self.highscore.get_scores(mode='classic')
-            subtitle = "Modalità Classica"
         elif self.highscore_filter == 'timed_easy':
             scores = self.highscore.get_scores(mode='timed', difficulty='easy')
-            subtitle = "A Tempo - Facile"
         elif self.highscore_filter == 'timed_medium':
             scores = self.highscore.get_scores(mode='timed', difficulty='medium')
-            subtitle = "A Tempo - Media"
         elif self.highscore_filter == 'timed_hard':
             scores = self.highscore.get_scores(mode='timed', difficulty='hard')
-            subtitle = "A Tempo - Difficile"
         else:
             scores = self.highscore.get_scores()
-            subtitle = "Tutte le Modalità"
         
-        self.renderer.draw_text(
-            subtitle,
-            (SCREEN_WIDTH // 2, 120),
-            'small',
-            COLORS['secondary'],
-            center=True
-        )
-        
-        # Tabella punteggi
+        # Tabella
         if scores:
-            self.renderer.draw_highscore_table_improved(
-                scores,
-                (SCREEN_WIDTH // 2, 160)
-            )
+            self.renderer.draw_highscore_table_improved(scores, (SCREEN_WIDTH // 2, 120))
         else:
-            # Messaggio se nessun punteggio
-            no_score_rect = pygame.Rect(SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2 - 40, 360, 120)
-            pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], no_score_rect, border_radius=15)
-            pygame.draw.rect(self.renderer.screen, COLORS['gray'], no_score_rect, width=2, border_radius=15)
+            empty_box = pygame.Rect(SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50, 300, 100)
+            pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], empty_box, border_radius=15)
+            pygame.draw.rect(self.renderer.screen, COLORS['muted'], empty_box, width=1, border_radius=15)
             
-            self.renderer.draw_text(
-                "[!] Nessun Punteggio",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10),
-                'medium',
-                COLORS['gray'],
-                center=True
-            )
-            self.renderer.draw_text(
-                "in questa modalità",
-                (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30),
-                'small',
-                COLORS['secondary'],
-                center=True
-            )
+            self.renderer.draw_text("Nessun punteggio", (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10), 
+                                   'medium', COLORS['muted'], center=True)
+            self.renderer.draw_text("in questa modalità", (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20), 
+                                   'small', COLORS['secondary'], center=True)
         
-        # Feed camera (piccolo, in basso a destra)
+        # Camera
         if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH - 90, SCREEN_HEIGHT - 90),
-                (120, 90),
-                COLORS['primary']
-            )
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 80), 
+                                          (110, 80), COLORS['primary'])
         
-        # Indicatore gesto
-        self.renderer.draw_gesture_indicator(
-            gesture, 1.0,
-            (SCREEN_WIDTH - 90, SCREEN_HEIGHT - 150)
-        )
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 130))
         
         # Istruzioni
-        self.renderer.draw_text(
-            "← → per cambiare filtro | INVIO per tornare",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
+        self.renderer.draw_text("←→ Filtro  •  INVIO Torna", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 
+                               'small', COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # INSERIMENTO NOME
+    # =========================================================================
     
     def _render_enter_name(self, frame):
-        """Renderizza l'input del nome con effetti migliorati."""
-        # Sfondo con gradiente celebrativo
-        top_color = (50, 40, 30)
-        bottom_color = (30, 30, 50)
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
-        # Emetti particelle di celebrazione
-        if not hasattr(self, '_name_input_particles'):
-            for _ in range(3):
-                x = SCREEN_WIDTH // 2 + random.randint(-100, 100)
-                y = 80
-                self.renderer.emit_particles(x, y, count=12, color=COLORS['success'], lifetime=1.5)
+        """Renderizza l'inserimento nome."""
+        if not hasattr(self, '_name_input_particles') or not self._name_input_particles:
+            self.renderer.emit_confetti(SCREEN_WIDTH // 2, 100, 30)
             self._name_input_particles = True
         
-        self.renderer.draw_text(
-            "* NUOVO RECORD! *",
-            (SCREEN_WIDTH // 2, 80),
-            'title',
-            COLORS['success'],
-            center=True,
-            shadow=True
-        )
+        # Titolo
+        self.renderer.draw_text("★ NUOVO RECORD! ★", (SCREEN_WIDTH // 2, 80), 
+                               'title', COLORS['success'], center=True, shadow=True, glow=True)
         
-        self.renderer.draw_text(
-            "Inserisci il tuo nome (max 5 caratteri)",
-            (SCREEN_WIDTH // 2, 150),
-            'medium',
-            COLORS['white'],
-            center=True
-        )
+        self.renderer.draw_text("Inserisci il tuo nome (max 5 caratteri)", 
+                               (SCREEN_WIDTH // 2, 140), 'medium', COLORS['white'], center=True)
         
-        # Campo input con stile migliorato
+        # Input
         cursor_visible = int(self.cursor_blink_time * 2) % 2 == 0
-        self.renderer.draw_name_input(
-            self.input_name,
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2),
-            cursor_visible
-        )
+        self.renderer.draw_name_input(self.input_name, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20), cursor_visible)
         
-        # Tastiera virtuale elegante
-        self.renderer.draw_text(
-            "Digita le lettere sulla tastiera",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
+        # Istruzioni
+        box = pygame.Rect(SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 + 60, 400, 80)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], box, border_radius=12)
         
-        self.renderer.draw_text(
-            "Premi INVIO per confermare | BACKSPACE per cancellare",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
-            'small',
-            COLORS['gray'],
-            center=True
-        )
+        self.renderer.draw_text("Digita le lettere sulla tastiera", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 85), 
+                               'small', COLORS['muted'], center=True)
+        self.renderer.draw_text("INVIO = Conferma  •  BACKSPACE = Cancella", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 115), 
+                               'small', COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # IMPOSTAZIONI
+    # =========================================================================
     
     def _render_settings(self, frame, gesture: str):
-        """Renderizza le impostazioni con design migliorato."""
-        # Sfondo con gradiente
-        top_color = COLORS['background']
-        bottom_color = (40, 40, 50)
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
+        """Renderizza le impostazioni."""
+        # Titolo
+        self.renderer.draw_text("IMPOSTAZIONI", (SCREEN_WIDTH // 2, 45), 
+                               'title', COLORS['primary'], center=True, shadow=True)
         
-        self.renderer.draw_text(
-            "[GEAR] IMPOSTAZIONI [GEAR]",
-            (SCREEN_WIDTH // 2, 50),
-            'title',
-            COLORS['primary'],
-            center=True,
-            shadow=True
-        )
+        # Box settings
+        settings_box = pygame.Rect(SCREEN_WIDTH // 2 - 320, 85, 640, 400)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], settings_box, border_radius=20)
+        pygame.draw.rect(self.renderer.screen, COLORS['primary'], settings_box, width=2, border_radius=20)
         
-        # Box impostazioni con design migliorato
-        settings_box = pygame.Rect(SCREEN_WIDTH // 2 - 300, 100, 600, 380)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], settings_box, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, COLORS['primary'], settings_box, width=3, border_radius=15)
-        
-        y = 130
+        y = 115
         for i, option in enumerate(self.settings_options):
             selected = i == self.settings_selection
             
-            # Evidenzia opzione selezionata con glow
+            # Highlight
             if selected:
-                highlight_rect = pygame.Rect(SCREEN_WIDTH // 2 - 285, y - 12, 570, 45)
-                pygame.draw.rect(self.renderer.screen, COLORS['primary'], highlight_rect, border_radius=10)
-                # Glow effect
-                glow_intensity = 0.5 + 0.3 * math.sin(self.animation_time * 4)
-                glow_color = tuple(int(c * glow_intensity * 0.5) for c in COLORS['primary'])
+                highlight = pygame.Rect(SCREEN_WIDTH // 2 - 300, y - 15, 600, 40)
+                pygame.draw.rect(self.renderer.screen, COLORS['primary'], highlight, border_radius=10)
             
+            # Label
             label_color = COLORS['white'] if selected else COLORS['gray']
+            prefix = "► " if selected else "  "
+            self.renderer.draw_text(prefix + option['label'], (SCREEN_WIDTH // 2 - 280, y), 
+                                   'medium' if selected else 'small', label_color)
             
-            # Label con icone per opzioni specifiche
-            label_text = option['label']
-            if selected:
-                label_text = "> " + label_text + " <"
-            
-            self.renderer.draw_text(
-                label_text,
-                (SCREEN_WIDTH // 2 - 260, y),
-                'medium' if selected else 'small',
-                label_color
-            )
-            
-            # Valore corrente
+            # Valore
             if option['key'] == 'back':
-                pass  # Nessun valore per il tasto indietro
-            elif option['key'] == 'reset_scores':
-                self.renderer.draw_text(
-                    "[!] Premi INVIO",
-                    (SCREEN_WIDTH // 2 + 150, y),
-                    'small',
-                    COLORS['danger'] if selected else COLORS['gray'],
-                    center=True
-                )
-            elif option['key'] == 'refresh_cameras':
-                # Mostra il numero di camera trovate
-                num_cameras = len(GAME_SETTINGS.available_cameras)
-                
-                # Mostra feedback se appena aggiornato
-                if self._cameras_refreshed and (self.animation_time - self._cameras_refresh_time) < 2.0:
-                    status_text = f"Trovate {num_cameras} camera!"
-                    status_color = COLORS['success']
-                else:
-                    status_text = f"({num_cameras} camera)"
-                    status_color = COLORS['secondary'] if selected else COLORS['gray']
-                    self._cameras_refreshed = False
-                
-                self.renderer.draw_text(
-                    status_text,
-                    (SCREEN_WIDTH // 2 + 150, y),
-                    'small',
-                    status_color,
-                    center=True
-                )
+                pass
+            elif option['key'] in ['reset_scores', 'refresh_cameras']:
+                action_text = "Premi INVIO" if option['key'] == 'reset_scores' else "Premi R"
+                self.renderer.draw_text(action_text, (SCREEN_WIDTH // 2 + 150, y), 
+                                       'small', COLORS['secondary'] if selected else COLORS['muted'], center=True)
             elif option['key'] == 'camera_index':
-                # Mostra il nome della camera corrente
                 camera_name = GAME_SETTINGS.get_camera_name()
-                # Tronca il nome se troppo lungo
-                if len(camera_name) > 20:
-                    camera_name = camera_name[:17] + "..."
-                value_color = COLORS['secondary']
+                if len(camera_name) > 22:
+                    camera_name = camera_name[:19] + "..."
                 
-                # Frecce per navigazione
                 if selected:
-                    self.renderer.draw_text("<", (SCREEN_WIDTH // 2 + 50, y), 'small', COLORS['white'], center=True)
-                    self.renderer.draw_text(">", (SCREEN_WIDTH // 2 + 250, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text("◄", (SCREEN_WIDTH // 2 + 50, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text("►", (SCREEN_WIDTH // 2 + 250, y), 'small', COLORS['white'], center=True)
                 
-                self.renderer.draw_text(
-                    camera_name,
-                    (SCREEN_WIDTH // 2 + 150, y),
-                    'small' if selected else 'tiny',
-                    value_color if selected else COLORS['gray'],
-                    center=True
-                )
+                self.renderer.draw_text(camera_name, (SCREEN_WIDTH // 2 + 150, y), 
+                                       'small', COLORS['secondary'], center=True)
             else:
                 current_value = getattr(GAME_SETTINGS, option['key'])
                 if isinstance(current_value, bool):
-                    value_text = "[ON] ON" if current_value else "[OFF] OFF"
+                    value_text = "ON" if current_value else "OFF"
                     value_color = COLORS['success'] if current_value else COLORS['danger']
                 else:
                     value_text = f"{current_value}{option['unit']}"
                     value_color = COLORS['secondary']
                 
-                # Frecce per navigazione valori
                 if selected:
-                    self.renderer.draw_text("<", (SCREEN_WIDTH // 2 + 80, y), 'small', COLORS['white'], center=True)
-                    self.renderer.draw_text(">", (SCREEN_WIDTH // 2 + 220, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text("◄", (SCREEN_WIDTH // 2 + 80, y), 'small', COLORS['white'], center=True)
+                    self.renderer.draw_text("►", (SCREEN_WIDTH // 2 + 220, y), 'small', COLORS['white'], center=True)
                 
-                self.renderer.draw_text(
-                    value_text,
-                    (SCREEN_WIDTH // 2 + 150, y),
-                    'medium' if selected else 'small',
-                    value_color if selected else COLORS['gray'],
-                    center=True
-                )
+                self.renderer.draw_text(value_text, (SCREEN_WIDTH // 2 + 150, y), 
+                                       'medium' if selected else 'small', 
+                                       value_color if selected else COLORS['muted'], center=True)
             
-            y += 55
+            y += 48
         
-        # Feed camera (piccolo)
+        # Camera
         if frame is not None:
-            self.renderer.draw_camera_feed(
-                frame,
-                (SCREEN_WIDTH - 90, SCREEN_HEIGHT - 90),
-                (120, 90),
-                COLORS['primary']
-            )
+            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 80), 
+                                          (110, 80), COLORS['primary'])
         
-        # Indicatore gesto
-        self.renderer.draw_gesture_indicator(
-            gesture, 1.0,
-            (SCREEN_WIDTH - 90, SCREEN_HEIGHT - 150)
-        )
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 130))
         
         # Istruzioni
-        self.renderer.draw_text(
-            "Su/Giu per scorrere | < > per modificare | INVIO per confermare | R per aggiornare camera",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
-            'tiny',
-            COLORS['gray'],
-            center=True
-        )
+        self.renderer.draw_text("↑↓ Scorri  •  ←→ Modifica  •  INVIO Conferma  •  R Aggiorna camera", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 'tiny', COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # ERRORE CAMERA
+    # =========================================================================
+    
+    def _render_camera_error(self):
+        """Renderizza errore camera."""
+        # Titolo
+        pulse = 0.7 + 0.3 * math.sin(self.animation_time * 4)
+        error_color = tuple(int(c * pulse) for c in COLORS['danger'])
+        
+        self.renderer.draw_text("ERRORE CAMERA", (SCREEN_WIDTH // 2, 70), 
+                               'title', error_color, center=True, shadow=True)
+        
+        self.renderer.draw_text("Camera disconnessa o non disponibile", 
+                               (SCREEN_WIDTH // 2, 120), 'medium', COLORS['white'], center=True)
+        
+        # Box selezione
+        box = pygame.Rect(SCREEN_WIDTH // 2 - 220, 160, 440, 300)
+        pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], box, border_radius=20)
+        pygame.draw.rect(self.renderer.screen, COLORS['danger'], box, width=2, border_radius=20)
+        
+        self.renderer.draw_text("Seleziona una camera:", (SCREEN_WIDTH // 2, 190), 
+                               'medium', COLORS['primary'], center=True)
+        
+        y = 230
+        if self.available_cameras:
+            for i, (idx, name) in enumerate(self.available_cameras):
+                selected = i == self.camera_error_selection
+                
+                if selected:
+                    highlight = pygame.Rect(SCREEN_WIDTH // 2 - 200, y - 12, 400, 35)
+                    pygame.draw.rect(self.renderer.screen, COLORS['primary'], highlight, border_radius=8)
+                
+                display_name = name if len(name) <= 35 else name[:32] + "..."
+                prefix = "► " if selected else "  "
+                self.renderer.draw_text(prefix + display_name, (SCREEN_WIDTH // 2 - 180, y), 
+                                       'small', COLORS['white'] if selected else COLORS['gray'])
+                y += 40
+            
+            # Aggiorna lista
+            selected = self.camera_error_selection >= len(self.available_cameras)
+            if selected:
+                highlight = pygame.Rect(SCREEN_WIDTH // 2 - 200, y - 12, 400, 35)
+                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], highlight, border_radius=8)
+            
+            self.renderer.draw_text("► Aggiorna lista camera" if selected else "  Aggiorna lista camera", 
+                                   (SCREEN_WIDTH // 2 - 180, y), 
+                                   'small', COLORS['white'] if selected else COLORS['gray'])
+        else:
+            self.renderer.draw_text("Nessuna camera trovata!", (SCREEN_WIDTH // 2, y), 
+                                   'medium', COLORS['danger'], center=True)
+            y += 40
+            self.renderer.draw_text("Collega una camera e premi R", (SCREEN_WIDTH // 2, y), 
+                                   'small', COLORS['muted'], center=True)
+        
+        # Istruzioni
+        self.renderer.draw_text("↑↓ Seleziona  •  INVIO Conferma  •  R Aggiorna", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 55), 'tiny', COLORS['muted'], center=True)
+        self.renderer.draw_text("ESC = Continua senza camera", 
+                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 'tiny', COLORS['muted'], center=True)
+    
+    # =========================================================================
+    # METODI NAVIGAZIONE
+    # =========================================================================
+    
+    def mode_up(self):
+        self.mode_selection = (self.mode_selection - 1) % len(self.mode_options)
+    
+    def mode_down(self):
+        self.mode_selection = (self.mode_selection + 1) % len(self.mode_options)
+    
+    def difficulty_left(self):
+        if self.mode_selection == 1:
+            self.difficulty_selection = (self.difficulty_selection - 1) % len(self.difficulty_options)
+    
+    def difficulty_right(self):
+        if self.mode_selection == 1:
+            self.difficulty_selection = (self.difficulty_selection + 1) % len(self.difficulty_options)
+    
+    def get_selected_mode(self) -> GameMode:
+        return GameMode.CLASSIC if self.mode_selection == 0 else GameMode.TIMED
+    
+    def get_selected_difficulty(self) -> TimedDifficulty:
+        return self.difficulty_options[self.difficulty_selection]['key']
     
     def settings_up(self):
-        """Naviga su nelle impostazioni."""
         self.settings_selection = (self.settings_selection - 1) % len(self.settings_options)
     
     def settings_down(self):
-        """Naviga giu' nelle impostazioni."""
         self.settings_selection = (self.settings_selection + 1) % len(self.settings_options)
     
     def settings_change_value(self, direction: int) -> Optional[int]:
-        """
-        Modifica il valore dell'impostazione selezionata.
-        
-        Args:
-            direction: -1 per precedente, 1 per successivo
-            
-        Returns:
-            Nuovo indice camera se cambiata, 'refresh_cameras' se richiesto refresh,
-            True se modificata altra impostazione, False altrimenti
-        """
         option = self.settings_options[self.settings_selection]
         
         if option['key'] in ['back', 'reset_scores', 'refresh_cameras']:
             return False
         
-        # Gestione speciale per camera (valori dinamici)
         if option['key'] == 'camera_index':
             cameras = GAME_SETTINGS.available_cameras
             if not cameras:
@@ -1558,7 +960,7 @@ class ScreenManager:
             new_idx = (current_idx + direction) % len(cameras)
             new_camera_index = cameras[new_idx][0]
             GAME_SETTINGS.camera_index = new_camera_index
-            return new_camera_index  # Restituisce l'indice per cambio camera
+            return new_camera_index
         
         current_value = getattr(GAME_SETTINGS, option['key'])
         values = option['values']
@@ -1573,13 +975,6 @@ class ScreenManager:
         return True
     
     def settings_select(self) -> Optional[str]:
-        """
-        Gestisce la selezione dell'impostazione corrente.
-        
-        Returns:
-            'back' per tornare al menu, 'reset_scores' per cancellare la classifica,
-            'refresh_cameras' per aggiornare la lista camera, None altrimenti
-        """
         option = self.settings_options[self.settings_selection]
         
         if option['key'] == 'back':
@@ -1592,20 +987,10 @@ class ScreenManager:
         return None
     
     def notify_cameras_refreshed(self):
-        """Notifica che la lista camera è stata aggiornata."""
         self._cameras_refreshed = True
         self._cameras_refresh_time = self.animation_time
     
     def handle_name_input(self, event: pygame.event) -> Optional[str]:
-        """
-        Gestisce l'input del nome.
-        
-        Args:
-            event: Evento Pygame
-            
-        Returns:
-            Nome completo se confermato, None altrimenti
-        """
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN and len(self.input_name) >= 1:
                 name = self.input_name
@@ -1619,174 +1004,41 @@ class ScreenManager:
         return None
     
     def reset_name_input(self):
-        """Resetta l'input del nome."""
         self.input_name = ""
         self.cursor_blink_time = 0
+        self._name_input_particles = False
     
     def highscore_filter_left(self):
-        """Cambia il filtro della classifica verso sinistra."""
         filters = ['all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard']
         current_idx = filters.index(self.highscore_filter)
         self.highscore_filter = filters[(current_idx - 1) % len(filters)]
     
     def highscore_filter_right(self):
-        """Cambia il filtro della classifica verso destra."""
         filters = ['all', 'classic', 'timed_easy', 'timed_medium', 'timed_hard']
         current_idx = filters.index(self.highscore_filter)
         self.highscore_filter = filters[(current_idx + 1) % len(filters)]
     
-    # ==================
-    # CAMERA ERROR SCREEN
-    # ==================
-    
     def set_available_cameras(self, cameras: list):
-        """
-        Imposta la lista delle camera disponibili.
-        
-        Args:
-            cameras: Lista di tuple (indice, nome)
-        """
         self.available_cameras = cameras
         self.camera_error_selection = 0
     
     def camera_error_up(self):
-        """Naviga su nella lista camera."""
         if self.available_cameras:
             self.camera_error_selection = (self.camera_error_selection - 1) % (len(self.available_cameras) + 1)
         else:
             self.camera_error_selection = 0
     
     def camera_error_down(self):
-        """Naviga giu' nella lista camera."""
         if self.available_cameras:
             self.camera_error_selection = (self.camera_error_selection + 1) % (len(self.available_cameras) + 1)
         else:
             self.camera_error_selection = 0
     
     def get_selected_camera_index(self) -> Optional[int]:
-        """
-        Restituisce l'indice della camera selezionata.
-        
-        Returns:
-            Indice della camera o None se selezionato 'Riprova'
-        """
         if not self.available_cameras:
             return None
         
-        # L'ultima opzione è 'Aggiorna lista'
         if self.camera_error_selection >= len(self.available_cameras):
-            return -1  # Indica 'Aggiorna lista'
+            return -1
         
         return self.available_cameras[self.camera_error_selection][0]
-    
-    def _render_camera_error(self):
-        """Renderizza la schermata di errore camera."""
-        # Sfondo rosso scuro
-        top_color = (50, 20, 20)
-        bottom_color = (30, 15, 15)
-        gradient_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.renderer.draw_gradient_rect(gradient_rect, top_color, bottom_color)
-        
-        # Icona e titolo errore
-        pulse = 0.7 + 0.3 * math.sin(self.animation_time * 4)
-        error_color = tuple(int(c * pulse) for c in COLORS['danger'])
-        
-        self.renderer.draw_text(
-            "[!] ERRORE CAMERA [!]",
-            (SCREEN_WIDTH // 2, 80),
-            'title',
-            error_color,
-            center=True,
-            shadow=True
-        )
-        
-        self.renderer.draw_text(
-            "La camera si è disconnessa o non è disponibile",
-            (SCREEN_WIDTH // 2, 140),
-            'medium',
-            COLORS['white'],
-            center=True
-        )
-        
-        # Box per selezione camera
-        box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 250, 180, 500, 320)
-        pygame.draw.rect(self.renderer.screen, COLORS['dark_gray'], box_rect, border_radius=15)
-        pygame.draw.rect(self.renderer.screen, COLORS['danger'], box_rect, width=3, border_radius=15)
-        
-        self.renderer.draw_text(
-            "Seleziona una camera:",
-            (SCREEN_WIDTH // 2, 210),
-            'medium',
-            COLORS['primary'],
-            center=True
-        )
-        
-        y = 260
-        
-        if self.available_cameras:
-            for i, (idx, name) in enumerate(self.available_cameras):
-                selected = i == self.camera_error_selection
-                
-                if selected:
-                    # Evidenzia selezione
-                    highlight_rect = pygame.Rect(SCREEN_WIDTH // 2 - 220, y - 8, 440, 36)
-                    pygame.draw.rect(self.renderer.screen, COLORS['primary'], highlight_rect, border_radius=8)
-                
-                # Tronca nome se troppo lungo
-                display_name = name if len(name) <= 35 else name[:32] + "..."
-                prefix = "> " if selected else "  "
-                
-                self.renderer.draw_text(
-                    prefix + display_name,
-                    (SCREEN_WIDTH // 2 - 200, y),
-                    'small',
-                    COLORS['white'] if selected else COLORS['gray']
-                )
-                y += 40
-            
-            # Opzione "Aggiorna lista"
-            selected = self.camera_error_selection >= len(self.available_cameras)
-            if selected:
-                highlight_rect = pygame.Rect(SCREEN_WIDTH // 2 - 220, y - 8, 440, 36)
-                pygame.draw.rect(self.renderer.screen, COLORS['secondary'], highlight_rect, border_radius=8)
-            
-            self.renderer.draw_text(
-                "> [R] Aggiorna lista camera" if selected else "  [R] Aggiorna lista camera",
-                (SCREEN_WIDTH // 2 - 200, y),
-                'small',
-                COLORS['white'] if selected else COLORS['gray']
-            )
-        else:
-            self.renderer.draw_text(
-                "Nessuna camera trovata!",
-                (SCREEN_WIDTH // 2, y),
-                'medium',
-                COLORS['danger'],
-                center=True
-            )
-            y += 50
-            
-            self.renderer.draw_text(
-                "Collega una camera e premi [R] per aggiornare",
-                (SCREEN_WIDTH // 2, y),
-                'small',
-                COLORS['gray'],
-                center=True
-            )
-        
-        # Istruzioni in basso
-        self.renderer.draw_text(
-            "Su/Giu per selezionare | INVIO per confermare | R per aggiornare",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 60),
-            'tiny',
-            COLORS['gray'],
-            center=True
-        )
-        
-        self.renderer.draw_text(
-            "ESC per continuare senza camera",
-            (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
-            'tiny',
-            COLORS['gray'],
-            center=True
-        )

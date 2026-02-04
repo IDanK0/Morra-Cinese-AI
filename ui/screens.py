@@ -71,6 +71,7 @@ class ScreenManager:
         self.settings_selection = 0
         self.settings_options = [
             {'key': 'camera_index', 'label': 'Camera', 'values': 'dynamic', 'unit': ''},
+            {'key': 'refresh_cameras', 'label': '[R] Aggiorna lista camera', 'values': ['action'], 'unit': ''},
             {'key': 'gesture_hold_time', 'label': 'Tempo conferma gesto', 'values': [0.5, 0.75, 1.0, 1.25, 1.5], 'unit': 's'},
             {'key': 'countdown_time', 'label': 'Tempo countdown', 'values': [2, 3, 4, 5], 'unit': 's'},
             {'key': 'camera_flip', 'label': 'Specchia camera', 'values': [True, False], 'unit': ''},
@@ -78,6 +79,10 @@ class ScreenManager:
             {'key': 'reset_scores', 'label': 'Cancella classifica', 'values': ['action'], 'unit': ''},
             {'key': 'back', 'label': '<- Torna al menu', 'values': ['action'], 'unit': ''},
         ]
+        
+        # Flag per indicare che le camera sono state aggiornate
+        self._cameras_refreshed = False
+        self._cameras_refresh_time = 0
         
         # Camera error selection
         self.camera_error_selection = 0
@@ -89,6 +94,65 @@ class ScreenManager:
         self.cursor_blink_time += dt
         self.renderer.update_particles(dt)
         self.renderer.apply_screen_overlay(dt)
+    
+    def _draw_no_camera_indicator(self, position: tuple, size: tuple):
+        """
+        Disegna un indicatore che mostra che la camera non è connessa.
+        Include un'animazione di "ricerca in corso".
+        
+        Args:
+            position: (x, y) centro del rettangolo
+            size: (width, height) dimensioni
+        """
+        x, y = position
+        w, h = size
+        rect = pygame.Rect(x - w // 2, y - h // 2, w, h)
+        
+        # Sfondo scuro
+        pygame.draw.rect(self.renderer.screen, (30, 30, 40), rect, border_radius=10)
+        
+        # Bordo animato (pulsante giallo/arancione)
+        pulse = 0.5 + 0.5 * math.sin(self.animation_time * 3)
+        border_color = (
+            int(200 * pulse + 55),
+            int(150 * pulse + 50),
+            30
+        )
+        pygame.draw.rect(self.renderer.screen, border_color, rect, width=2, border_radius=10)
+        
+        # Icona camera con X
+        icon_size = min(w, h) // 3
+        icon_x = x
+        icon_y = y - 10
+        
+        # Disegna icona camera stilizzata
+        cam_rect = pygame.Rect(icon_x - icon_size // 2, icon_y - icon_size // 3, 
+                               icon_size, int(icon_size * 0.7))
+        pygame.draw.rect(self.renderer.screen, (100, 100, 100), cam_rect, border_radius=3)
+        
+        # Lente
+        lens_radius = icon_size // 4
+        pygame.draw.circle(self.renderer.screen, (70, 70, 70), 
+                          (icon_x, icon_y), lens_radius)
+        
+        # X rossa sopra
+        cross_size = icon_size // 2
+        pygame.draw.line(self.renderer.screen, (200, 60, 60),
+                        (icon_x - cross_size, icon_y - cross_size),
+                        (icon_x + cross_size, icon_y + cross_size), 3)
+        pygame.draw.line(self.renderer.screen, (200, 60, 60),
+                        (icon_x + cross_size, icon_y - cross_size),
+                        (icon_x - cross_size, icon_y + cross_size), 3)
+        
+        # Testo "Ricerca..."
+        dots = "." * (int(self.animation_time * 2) % 4)
+        self.renderer.draw_text(
+            f"Ricerca{dots}",
+            (x, y + h // 3),
+            'tiny',
+            (180, 180, 100),
+            center=True
+        )
     
     def render(self, 
                current_state: GameState,
@@ -182,6 +246,12 @@ class ScreenManager:
                 (160, 120),
                 COLORS['primary']
             )
+        else:
+            # Mostra indicatore "camera non connessa" con animazione di ricerca
+            self._draw_no_camera_indicator(
+                (SCREEN_WIDTH - 120, 80),
+                (160, 120)
+            )
         
         # Opzioni menu con effetti di glow
         menu_items = [
@@ -248,6 +318,12 @@ class ScreenManager:
                 (SCREEN_WIDTH - 120, 80),
                 (160, 120),
                 COLORS['primary']
+            )
+        else:
+            # Mostra indicatore "camera non connessa" con animazione di ricerca
+            self._draw_no_camera_indicator(
+                (SCREEN_WIDTH - 120, 80),
+                (160, 120)
             )
         
         # Opzioni modalità
@@ -1355,6 +1431,26 @@ class ScreenManager:
                     COLORS['danger'] if selected else COLORS['gray'],
                     center=True
                 )
+            elif option['key'] == 'refresh_cameras':
+                # Mostra il numero di camera trovate
+                num_cameras = len(GAME_SETTINGS.available_cameras)
+                
+                # Mostra feedback se appena aggiornato
+                if self._cameras_refreshed and (self.animation_time - self._cameras_refresh_time) < 2.0:
+                    status_text = f"Trovate {num_cameras} camera!"
+                    status_color = COLORS['success']
+                else:
+                    status_text = f"({num_cameras} camera)"
+                    status_color = COLORS['secondary'] if selected else COLORS['gray']
+                    self._cameras_refreshed = False
+                
+                self.renderer.draw_text(
+                    status_text,
+                    (SCREEN_WIDTH // 2 + 150, y),
+                    'small',
+                    status_color,
+                    center=True
+                )
             elif option['key'] == 'camera_index':
                 # Mostra il nome della camera corrente
                 camera_name = GAME_SETTINGS.get_camera_name()
@@ -1416,7 +1512,7 @@ class ScreenManager:
         
         # Istruzioni
         self.renderer.draw_text(
-            "Giu per scorrere | < > per modificare | INVIO per confermare",
+            "Su/Giu per scorrere | < > per modificare | INVIO per confermare | R per aggiornare camera",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 35),
             'tiny',
             COLORS['gray'],
@@ -1439,11 +1535,12 @@ class ScreenManager:
             direction: -1 per precedente, 1 per successivo
             
         Returns:
-            Nuovo indice camera se cambiata, True se modificata altra impostazione, False altrimenti
+            Nuovo indice camera se cambiata, 'refresh_cameras' se richiesto refresh,
+            True se modificata altra impostazione, False altrimenti
         """
         option = self.settings_options[self.settings_selection]
         
-        if option['key'] in ['back', 'reset_scores']:
+        if option['key'] in ['back', 'reset_scores', 'refresh_cameras']:
             return False
         
         # Gestione speciale per camera (valori dinamici)
@@ -1480,7 +1577,8 @@ class ScreenManager:
         Gestisce la selezione dell'impostazione corrente.
         
         Returns:
-            'back' per tornare al menu, 'reset_scores' per cancellare la classifica, None altrimenti
+            'back' per tornare al menu, 'reset_scores' per cancellare la classifica,
+            'refresh_cameras' per aggiornare la lista camera, None altrimenti
         """
         option = self.settings_options[self.settings_selection]
         
@@ -1488,8 +1586,15 @@ class ScreenManager:
             return 'back'
         elif option['key'] == 'reset_scores':
             return 'reset_scores'
+        elif option['key'] == 'refresh_cameras':
+            return 'refresh_cameras'
         
         return None
+    
+    def notify_cameras_refreshed(self):
+        """Notifica che la lista camera è stata aggiornata."""
+        self._cameras_refreshed = True
+        self._cameras_refresh_time = self.animation_time
     
     def handle_name_input(self, event: pygame.event) -> Optional[str]:
         """

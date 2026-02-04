@@ -477,28 +477,46 @@ class CameraManager:
     """
     
     @staticmethod
-    def get_available_cameras(max_cameras: int = 10) -> list:
+    def get_available_cameras(max_cameras: int = 10, timeout_per_camera: float = 2.0) -> list:
         """
         Rileva tutte le camera disponibili nel sistema.
         
         Args:
             max_cameras: Numero massimo di camera da controllare
+            timeout_per_camera: Timeout in secondi per ogni camera (non usato direttamente ma per ref)
             
         Returns:
             Lista di tuple (indice, nome) delle camera disponibili
         """
         available = []
         for i in range(max_cameras):
-            cap = cv2.VideoCapture(i)
-            if cap.isOpened():
-                # Prova a leggere un frame per verificare che funzioni
-                ret, _ = cap.read()
-                if ret:
-                    # Ottieni il nome della camera se disponibile
-                    backend = cap.getBackendName()
-                    name = f"Camera {i} ({backend})"
-                    available.append((i, name))
-                cap.release()
+            cap = None
+            try:
+                cap = cv2.VideoCapture(i)
+                if cap is not None and cap.isOpened():
+                    # Prova a leggere un frame per verificare che funzioni
+                    ret, frame = cap.read()
+                    if ret and frame is not None:
+                        # Ottieni il nome della camera se disponibile
+                        try:
+                            backend = cap.getBackendName()
+                        except:
+                            backend = "Unknown"
+                        name = f"Camera {i} ({backend})"
+                        available.append((i, name))
+            except cv2.error as e:
+                # Camera non disponibile o errore OpenCV, continua con la prossima
+                pass
+            except Exception as e:
+                # Errore generico, continua
+                print(f"Errore durante scansione camera {i}: {e}")
+            finally:
+                # Assicurati di rilasciare sempre la camera
+                if cap is not None:
+                    try:
+                        cap.release()
+                    except:
+                        pass
         return available
     
     def __init__(self, camera_index: int = 0, width: int = 640, height: int = 480):
@@ -535,16 +553,32 @@ class CameraManager:
         Returns:
             Tuple (success, frame)
         """
-        ret, frame = self.cap.read()
+        # Controlla prima se la camera è ancora aperta
+        if not self.cap.isOpened():
+            self.consecutive_failures = self.max_failures
+            return False, None
         
-        if ret:
-            self.consecutive_failures = 0
-            if flip:
-                frame = cv2.flip(frame, 1)
-        else:
+        try:
+            ret, frame = self.cap.read()
+            
+            if ret and frame is not None:
+                self.consecutive_failures = 0
+                if flip:
+                    frame = cv2.flip(frame, 1)
+            else:
+                self.consecutive_failures += 1
+            
+            return ret, frame
+        except cv2.error as e:
+            # Errore OpenCV durante la lettura (es. camera disconnessa)
+            print(f"Errore OpenCV durante lettura camera: {e}")
+            self.consecutive_failures = self.max_failures
+            return False, None
+        except Exception as e:
+            # Errore generico
+            print(f"Errore imprevisto durante lettura camera: {e}")
             self.consecutive_failures += 1
-        
-        return ret, frame
+            return False, None
     
     def is_disconnected(self) -> bool:
         """Verifica se la camera sembra essere disconnessa."""
@@ -560,22 +594,36 @@ class CameraManager:
         Returns:
             True se il cambio è riuscito, False altrimenti
         """
-        # Rilascia la camera attuale
-        self.cap.release()
-        
-        # Prova ad aprire la nuova camera
-        self.cap = cv2.VideoCapture(new_index)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.desired_width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.desired_height)
-        
-        if self.cap.isOpened():
-            self.camera_index = new_index
-            self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            self.consecutive_failures = 0
-            return True
-        
-        return False
+        try:
+            # Rilascia la camera attuale in modo sicuro
+            if self.cap is not None:
+                try:
+                    self.cap.release()
+                except:
+                    pass
+            
+            # Prova ad aprire la nuova camera
+            self.cap = cv2.VideoCapture(new_index)
+            if self.cap is None:
+                return False
+                
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.desired_width)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.desired_height)
+            
+            if self.cap.isOpened():
+                # Verifica che la camera funzioni leggendo un frame
+                ret, frame = self.cap.read()
+                if ret and frame is not None:
+                    self.camera_index = new_index
+                    self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    self.consecutive_failures = 0
+                    return True
+            
+            return False
+        except Exception as e:
+            print(f"Errore durante switch camera a indice {new_index}: {e}")
+            return False
     
     def try_reconnect(self) -> bool:
         """
@@ -584,12 +632,42 @@ class CameraManager:
         Returns:
             True se la riconnessione è riuscita, False altrimenti
         """
-        return self.switch_camera(self.camera_index)
+        try:
+            # Reset failure count before trying
+            self.consecutive_failures = 0
+            return self.switch_camera(self.camera_index)
+        except Exception as e:
+            print(f"Errore durante tentativo di riconnessione camera: {e}")
+            return False
+    
+    def get_health_status(self) -> dict:
+        """
+        Restituisce lo stato di salute della camera.
+        
+        Returns:
+            Dizionario con informazioni sullo stato della camera
+        """
+        return {
+            'is_opened': self.cap.isOpened() if self.cap else False,
+            'consecutive_failures': self.consecutive_failures,
+            'is_disconnected': self.is_disconnected(),
+            'camera_index': self.camera_index,
+            'health_percent': max(0, 100 - (self.consecutive_failures * 10))
+        }
     
     def release(self):
-        """Rilascia la camera."""
-        self.cap.release()
+        """Rilascia la camera in modo sicuro."""
+        try:
+            if self.cap is not None:
+                self.cap.release()
+        except Exception as e:
+            print(f"Errore durante rilascio camera: {e}")
+        finally:
+            self.consecutive_failures = self.max_failures
     
     def is_opened(self) -> bool:
         """Verifica se la camera e' aperta."""
-        return self.cap.isOpened()
+        try:
+            return self.cap is not None and self.cap.isOpened()
+        except:
+            return False

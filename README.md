@@ -62,13 +62,43 @@ Un gioco di Morra Cinese (Sasso-Carta-Forbice) completamente **interattivo con r
 
 ## 🚀 Installazione
 
-### 1. Clonare il Repository
+### Opzione A: Eseguibile Portatile (Consigliato) ⭐
+
+**Il modo più semplice per giocare!** Nessuna installazione richiesta.
+
+1. **Scarica l'eseguibile** per il tuo sistema operativo:
+   - Windows: `MorraCinese.exe`
+   - Linux: `MorraCinese`
+
+2. **Avvia il gioco**:
+   - Windows: Doppio click su `MorraCinese.exe`
+   - Linux: 
+     ```bash
+     chmod +x MorraCinese
+     ./MorraCinese
+     ```
+
+3. **Requisiti**: Solo una webcam funzionante! 📷
+
+✅ **Nessuna** installazione Python richiesta  
+✅ **Nessuna** dipendenza da installare  
+✅ **Pronto** all'uso immediato
+
+> 💡 **Per sviluppatori**: Vuoi creare tu stesso l'eseguibile? Vedi [BUILD_GUIDE.md](BUILD_GUIDE.md)
+
+---
+
+### Opzione B: Installazione da Sorgente (Per Sviluppatori)
+
+Se preferisci eseguire da codice sorgente o contribuire allo sviluppo:
+
+#### 1. Clonare il Repository
 ```bash
 git clone https://github.com/usuario/Morra-Cinese-AI.git
 cd Morra-Cinese-AI
 ```
 
-### 2. Creare un Ambiente Virtuale (Consigliato)
+#### 2. Creare un Ambiente Virtuale (Consigliato)
 
 **Windows:**
 ```bash
@@ -82,12 +112,12 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Installare le Dipendenze
+#### 3. Installare le Dipendenze
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Verificare l'Installazione (Opzionale)
+#### 4. Verificare l'Installazione (Opzionale)
 ```bash
 python -c "import cv2; import mediapipe; import pygame; import numpy; print('✓ Tutte le dipendenze installate correttamente!')"
 ```
@@ -295,6 +325,34 @@ Soluzione:
    - Renderer disegna frame
 4. **Fine Partita**: Salva punteggio
 5. **Cleanup**: Rilascia risorse (camera, finestra)
+
+---
+
+## 🏗️ Compilazione Eseguibile Standalone
+
+Vuoi creare tu stesso l'eseguibile portatile? È semplice!
+
+### Build Rapida
+
+**Windows:**
+```bash
+build.bat
+```
+
+**Linux:**
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+### Output
+L'eseguibile verrà creato in:
+- Windows: `dist/MorraCinese.exe` (~280MB)
+- Linux: `dist/MorraCinese` (~270MB)
+
+### Documentazione Completa
+Per istruzioni dettagliate su compilazione, distribuzione e risoluzione problemi, consulta:
+📖 **[BUILD_GUIDE.md](BUILD_GUIDE.md)** - Guida completa alla compilazione
 
 ---
 

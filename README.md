@@ -355,8 +355,8 @@ Questo progetto è distribuito sotto licenza **MIT**. Vedi il file `LICENSE` per
 
 ## 👨‍💻 Autore
 
-**Sviluppato da**: Tecnico  
-**Repository**: [Morra-Cinese-AI](https://github.com/usuario/Morra-Cinese-AI)
+**Sviluppato da**: Classe 4a  
+**Repository**: [Morra-Cinese-AI](https://github.com/IDanK0/Morra-Cinese-AI)
 
 ---
 
@@ -374,14 +374,6 @@ Questo progetto è distribuito sotto licenza **MIT**. Vedi il file `LICENSE` per
 Per problemi o domande:
 1. Controlla la sezione [Risoluzione Problemi](#-risoluzione-problemi)
 2. Apri un'issue su GitHub
-3. Contatta lo sviluppatore
-
----
-
-## 🎮 Screenshots & Demo
-
-> Video demo disponibile su YouTube: [Link al video]
-> Screenshots della gameplay nella cartella `/screenshots`
 
 ---
 

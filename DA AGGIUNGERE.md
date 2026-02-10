@@ -4,9 +4,9 @@ Obiettivo: tenere traccia delle migliorie da fare (con priorità e “definizion
 
 ## P0 — Migliorie UX/compatibilità (prima)
 
-- [ ] **Rimuovere le emoji non supportate e migliorare la grafica**
-    - Motivo: su alcuni sistemi/font le emoji non sono visualizzabili.
-    - DoD (Done): nessuna schermata usa emoji come unico indicatore; sostituite con elementi sempre visibili (testo/icone ASCII/forme), layout più pulito e coerente.
+- [ ] **Rimuovere tutte le emoji e migliorare la grafica**
+    - Motivo: Python non visualizza le emoji.
+    - DoD (Done): nessuna schermata usa emoji; sostituite con elementi sempre visibili (testo/icone ASCII/forme), layout più pulito e coerente.
 
 - [ ] **Fullscreen dalle impostazioni + responsività**
     - DoD (Done): toggle fullscreen nelle impostazioni; UI leggibile su risoluzioni diverse (almeno 720p e 1080p) senza sovrapposizioni o tagli.

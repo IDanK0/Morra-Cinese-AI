@@ -5,7 +5,7 @@ This guide produces a Windows 10/11 x64 distributable that runs without Python.
 ## Prerequisites
 
 - Windows 10/11 x64
-- Python 3.10 or 3.11 (64-bit). MediaPipe often fails to build on 3.12.
+- Python 3.12.0 (64-bit). MediaPipe often fails to build on 3.12.
 - A clean virtual environment (recommended)
 
 ## Build Steps (PowerShell or CMD)
@@ -13,7 +13,7 @@ This guide produces a Windows 10/11 x64 distributable that runs without Python.
 1) Create and activate a virtual environment:
 
 ```bat
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\activate
 ```
 
@@ -62,6 +62,6 @@ If the EXE fails to start due to missing VC++ runtime:
 
 ## Troubleshooting
 
-- MediaPipe errors on build: ensure Python 3.10/3.11 x64 and reinstall dependencies.
+- MediaPipe errors on build: ensure Python 3.12.0 x64 and reinstall dependencies.
 - Camera not detected: enable camera access in Windows privacy settings.
 - Pygame DLL errors: rebuild using a clean venv and rerun PyInstaller.

@@ -4,7 +4,9 @@
 
 # Visione Artificiale e Riconoscimento Gesti
 opencv-python-headless==4.12.0.88  # Elaborazione video e cattura webcam
-mediapipe==0.10.14                  # Rilevamento e tracking delle mani
+# Usa una versione disponibile di mediapipe per Windows
+# Preferiamo la Task API recente; non forzare una versione non disponibile
+mediapipe>=0.10.0
 
 # Interfaccia Grafica
 pygame==2.6.1                       # Framework per il rendering grafico

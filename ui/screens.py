@@ -4,10 +4,20 @@ Schermate del gioco - Design Moderno Gaming
 Interfaccia utente riprogettata con stile professionale e carino.
 """
 
-import pygame
+try:
+    import pygame  # type: ignore[import]
+    if not hasattr(pygame, 'Surface') or not hasattr(pygame, 'display'):
+        raise ImportError("pygame non ha gli attributi richiesti (Surface, display)")
+except ImportError as e:
+    print(f"❌ ERRORE: pygame non è disponibile!")
+    print(f"   {"Motivo: " + str(e) if str(e) else ""}")
+    print(f"   Soluzione: python -m pip install pygame")
+    import sys
+    sys.exit(1)
+
 import math
 import random
-from typing import Optional
+from typing import Optional, Any
 import time
 
 from game.game_state import GameState, StateManager
@@ -56,8 +66,8 @@ class ScreenManager:
         self.difficulty_selection = 1
         
         self.mode_options = [
-            {'key': 'classic', 'label': 'Classica', 'icon': '🎮', 'description': 'Gioca senza limiti di tempo'},
-            {'key': 'timed', 'label': 'A Tempo', 'icon': '⏱️', 'description': 'Rispondi prima che scada il timer!'},
+            {'key': 'classic', 'label': 'Tradizionale', 'icon': '🎮', 'description': 'Gioca senza limiti di tempo'},
+            {'key': 'timed', 'label': 'Variante Riflessi', 'icon': '⚡', 'description': 'Rispondi prima che scada il timer'},
         ]
         
         self.difficulty_options = [
@@ -75,6 +85,7 @@ class ScreenManager:
             {'key': 'countdown_time', 'label': 'Countdown', 'values': [2, 3, 4, 5], 'unit': 's'},
             {'key': 'camera_flip', 'label': 'Specchia Camera', 'values': [True, False], 'unit': ''},
             {'key': 'show_fps', 'label': 'Mostra FPS', 'values': [True, False], 'unit': ''},
+            {'key': 'fullscreen', 'label': 'Schermo intero', 'values': [True, False], 'unit': ''},
             {'key': 'reset_scores', 'label': 'Cancella Classifica', 'values': ['action'], 'unit': ''},
             {'key': 'back', 'label': 'Torna al Menu', 'values': ['action'], 'unit': ''},
         ]
@@ -180,18 +191,20 @@ class ScreenManager:
         # Decorazioni laterali animate
         self._draw_menu_decorations()
         
-        # Feed camera
+        # Feed camera (spostato in basso a sinistra)
+        cam_pos_menu = (80, SCREEN_HEIGHT - 120)
+        cam_size_menu = (140, 105)
         if frame is not None:
-            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 100, 90), (140, 105), COLORS['primary'])
+            self.renderer.draw_camera_feed(frame, cam_pos_menu, cam_size_menu, COLORS['primary'])
         else:
-            self._draw_no_camera_indicator((SCREEN_WIDTH - 100, 90), (140, 105))
+            self._draw_no_camera_indicator(cam_pos_menu, cam_size_menu)
         
         # Menu items
         menu_items = [
-            ('GIOCA', 'play', COLORS['success']),
-            ('CLASSIFICA', 'trophy', COLORS['warning']),
-            ('IMPOSTAZIONI', 'settings', COLORS['accent']),
-            ('ESCI', 'exit', COLORS['danger'])
+            ('🎮 GIOCA', 'play', COLORS['success']),
+            ('🏆 CLASSIFICA', 'trophy', COLORS['warning']),
+            ('⚙️ IMPOSTAZIONI', 'settings', COLORS['accent']),
+            ('🚪 ESCI', 'exit', COLORS['danger'])
         ]
         
         start_y = 220
@@ -217,7 +230,7 @@ class ScreenManager:
         )
         
         # Indicatore gesto
-        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 70))
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 85))
     
     def _draw_menu_decorations(self):
         """Disegna decorazioni animate per il menu."""
@@ -257,15 +270,17 @@ class ScreenManager:
             shadow=True
         )
         
-        # Camera
+        # Camera (basso a sinistra)
+        cam_pos_mode = (80, SCREEN_HEIGHT - 120)
+        cam_size_mode = (140, 105)
         if frame is not None:
-            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 100, 80), (140, 100), COLORS['primary'])
+            self.renderer.draw_camera_feed(frame, cam_pos_mode, cam_size_mode, COLORS['primary'])
         else:
-            self._draw_no_camera_indicator((SCREEN_WIDTH - 100, 80), (140, 100))
+            self._draw_no_camera_indicator(cam_pos_mode, cam_size_mode)
         
-        # Cards modalità
-        card_width = 350
-        card_height = 90
+        # Cards modalità (allargati)
+        card_width = 500
+        card_height = 120
         start_y = 140
         
         for i, option in enumerate(self.mode_options):
@@ -293,28 +308,28 @@ class ScreenManager:
             self.renderer.draw_text(option['description'], (text_x, y + 18), 
                                    'small', COLORS['muted'], center=True)
         
-        # Difficoltà (se modalità a tempo)
+        # Difficoltà (se modalità Variante Riflessi)
         if self.mode_selection == 1:
-            self._draw_difficulty_selector(start_y + 2 * (card_height + 20) + 10)
+            self._draw_difficulty_selector(start_y + 2 * (card_height + 20) - 30)
         
         # Pulsante indietro
         back_y = SCREEN_HEIGHT - 90
         back_selected = False
         pygame.draw.rect(self.renderer.screen, COLORS['card_bg'], 
-                        pygame.Rect(SCREEN_WIDTH // 2 - 100, back_y - 18, 200, 36), border_radius=10)
-        self.renderer.draw_text("← INDIETRO (ESC)", (SCREEN_WIDTH // 2, back_y), 
-                               'small', COLORS['muted'], center=True)
+                pygame.Rect(SCREEN_WIDTH // 2 - 100, back_y - 18, 200, 36), border_radius=10)
+        self.renderer.draw_text("<- INDIETRO (ESC)", (SCREEN_WIDTH // 2, back_y), 
+                       'small', COLORS['muted'], center=True)
         
         # Istruzioni
         self.renderer.draw_text(
-            "↑↓ Modalità  •  ←→ Difficoltà  •  INVIO Conferma",
+            "SU/GIU Modalità  •  <- -> Difficoltà  •  INVIO Conferma",
             (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40),
             'tiny',
             COLORS['muted'],
             center=True
         )
         
-        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 70))
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 100, SCREEN_HEIGHT - 85))
     
     def _draw_difficulty_selector(self, y: int):
         """Disegna il selettore difficoltà."""
@@ -360,11 +375,13 @@ class ScreenManager:
         player_score, cpu_score = self.game.get_score()
         self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
-        # Feed camera
+        # Feed camera (spostato in basso a sinistra all'inizio del gioco)
         if frame is not None:
             border_color = COLORS['success'] if gesture in ['rock', 'paper', 'scissors'] else COLORS['primary']
-            self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10), 
-                                          (420, 315), border_color)
+            # Posizione bottom-left con dimensione ridotta per non occupare il centro
+            cam_pos = (80, SCREEN_HEIGHT - 120)
+            cam_size = (320, 240)
+            self.renderer.draw_camera_feed(frame, cam_pos, cam_size, border_color)
         
         # Istruzioni
         if gesture in ['rock', 'paper', 'scissors']:
@@ -378,7 +395,7 @@ class ScreenManager:
                                'medium', color, center=True)
         
         # Indicatore gesto
-        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 70))
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 85))
         
         # Barra progresso
         if gesture in ['rock', 'paper', 'scissors'] and progress > 0:
@@ -417,7 +434,7 @@ class ScreenManager:
             )
     
     # =========================================================================
-    # MODALITA' A TEMPO
+    # MODALITA' VARIANTE RIFLESSI
     # =========================================================================
     
     def _render_timed_cpu_move(self, frame):
@@ -427,7 +444,7 @@ class ScreenManager:
         self.renderer.draw_score_panel(player_score, cpu_score, (SCREEN_WIDTH // 2, 45))
         
         # Titolo
-        self.renderer.draw_text("MODALITA' A TEMPO", (SCREEN_WIDTH // 2, 90), 
+        self.renderer.draw_text("VARIANTE RIFLESSI", (SCREEN_WIDTH // 2, 90), 
                                'medium', COLORS['secondary'], center=True)
         
         # CPU pensa
@@ -462,7 +479,7 @@ class ScreenManager:
                                'tiny', COLORS['muted'], center=True)
     
     def _render_timed_player_turn(self, frame, gesture: str, progress: float):
-        """Renderizza il turno del giocatore (modalità a tempo)."""
+        """Renderizza il turno del giocatore (modalità Variante Riflessi)."""
         remaining = self.state.get_remaining_time()
         response_time = GAME_SETTINGS.get_player_response_time()
         time_ratio = remaining / response_time
@@ -658,7 +675,7 @@ class ScreenManager:
         if self.highscore.is_high_score(player_score):
             pulse = 0.5 + 0.5 * math.sin(self.animation_time * 5)
             glow_color = tuple(int(c * pulse) for c in COLORS['success'])
-            self.renderer.draw_text("★ NUOVO RECORD! ★", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100), 
+            self.renderer.draw_text("* NUOVO RECORD! *", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100), 
                                    'large', COLORS['success'], center=True, glow=True)
         
         # Continua
@@ -678,7 +695,7 @@ class ScreenManager:
         # Tab filtri
         tabs = [
             ('all', 'TUTTE'),
-            ('classic', 'CLASSICA'),
+            ('classic', 'TRADIZIONALE'),
             ('timed_easy', 'FACILE'),
             ('timed_medium', 'MEDIA'),
             ('timed_hard', 'DIFFICILE')
@@ -733,11 +750,11 @@ class ScreenManager:
             self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 80), 
                                           (110, 80), COLORS['primary'])
         
-        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 130))
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 145))
         
         # Istruzioni
-        self.renderer.draw_text("←→ Filtro  •  INVIO Torna", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 
-                               'small', COLORS['muted'], center=True)
+        self.renderer.draw_text("<- -> Filtro  •  INVIO Torna", (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 
+                       'small', COLORS['muted'], center=True)
     
     # =========================================================================
     # INSERIMENTO NOME
@@ -750,8 +767,8 @@ class ScreenManager:
             self._name_input_particles = True
         
         # Titolo
-        self.renderer.draw_text("★ NUOVO RECORD! ★", (SCREEN_WIDTH // 2, 80), 
-                               'title', COLORS['success'], center=True, shadow=True, glow=True)
+        self.renderer.draw_text("* NUOVO RECORD! *", (SCREEN_WIDTH // 2, 80), 
+                       'title', COLORS['success'], center=True, shadow=True, glow=True)
         
         self.renderer.draw_text("Inserisci il tuo nome (max 5 caratteri)", 
                                (SCREEN_WIDTH // 2, 140), 'medium', COLORS['white'], center=True)
@@ -843,11 +860,11 @@ class ScreenManager:
             self.renderer.draw_camera_feed(frame, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 80), 
                                           (110, 80), COLORS['primary'])
         
-        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 130))
+        self.renderer.draw_gesture_indicator(gesture, 1.0, (SCREEN_WIDTH - 80, SCREEN_HEIGHT - 145))
         
         # Istruzioni
-        self.renderer.draw_text("↑↓ Scorri  •  ←→ Modifica  •  INVIO Conferma  •  R Aggiorna camera", 
-                               (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 'tiny', COLORS['muted'], center=True)
+        self.renderer.draw_text("SU/GIU Scorri  •  <- -> Modifica  •  INVIO Conferma  •  R Aggiorna camera", 
+                       (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 30), 'tiny', COLORS['muted'], center=True)
     
     # =========================================================================
     # ERRORE CAMERA
@@ -990,7 +1007,7 @@ class ScreenManager:
         self._cameras_refreshed = True
         self._cameras_refresh_time = self.animation_time
     
-    def handle_name_input(self, event: pygame.event) -> Optional[str]:
+    def handle_name_input(self, event: Any) -> Optional[str]:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN and len(self.input_name) >= 1:
                 name = self.input_name

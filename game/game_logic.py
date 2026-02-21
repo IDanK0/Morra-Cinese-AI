@@ -32,11 +32,11 @@ class Move(Enum):
         return names.get(self, '')
     
     def get_emoji(self) -> str:
-        """Restituisce l'emoji della mossa."""
+        """Restituisce il nome descrittivo della mossa (senza emoji)."""
         symbols = {
-            Move.ROCK: 'SASSO',
-            Move.PAPER: 'CARTA',
-            Move.SCISSORS: 'FORBICE'
+            Move.ROCK: 'Sasso',
+            Move.PAPER: 'Carta',
+            Move.SCISSORS: 'Forbice'
         }
         return symbols.get(self, '')
 

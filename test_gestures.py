@@ -7,6 +7,10 @@ import cv2
 import time
 from gesture.hand_detector import HandDetector, CameraManager
 
+# Questo file è un test interattivo per uso manuale. Evita che pytest lo raccolga
+import pytest
+pytest.skip("Interactive gesture tests - skip during automated pytest run", allow_module_level=True)
+
 def test_gesture_recognition():
     """Test interattivo del riconoscimento gesti."""
     print("=" * 60)

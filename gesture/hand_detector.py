@@ -3,9 +3,15 @@ Modulo di riconoscimento gesti della mano usando MediaPipe
 """
 
 import cv2
-import mediapipe as mp
+import importlib
+try:
+    import mediapipe as mp
+except Exception:
+    mp = None
 import numpy as np
 from typing import Optional, Tuple, List, Dict
+import os
+import importlib
 import time
 from collections import deque
 import math
@@ -44,16 +50,86 @@ class HandDetector:
             detection_confidence: Soglia di confidenza per il rilevamento
             tracking_confidence: Soglia di confidenza per il tracking
         """
-        self.mp_hands = mp.solutions.hands
-        self.mp_draw = mp.solutions.drawing_utils
-        self.mp_styles = mp.solutions.drawing_styles
+        # Compatibilità con diverse release di MediaPipe:
+        # - Se è presente l'API legacy `mp.solutions`, la useremo (mp<=0.8.x).
+        # - Altrimenti proviamo la Task API (mp>=0.10) tramite
+        #   mediapipe.tasks.python.vision.HandLandmarker.
+        self.use_solutions = False
+        self.use_tasks = False
+
+        # Primo tentativo: api legacy `mp.solutions`
+        if hasattr(mp, 'solutions'):
+            try:
+                self.mp_hands = mp.solutions.hands
+                self.mp_draw = mp.solutions.drawing_utils
+                self.mp_styles = mp.solutions.drawing_styles
+                self.hands = self.mp_hands.Hands(
+                    static_image_mode=False,
+                    max_num_hands=max_hands,
+                    min_detection_confidence=detection_confidence,
+                    min_tracking_confidence=tracking_confidence
+                )
+                self.use_solutions = True
+            except Exception:
+                self.use_solutions = False
+
+        # Se legacy non disponibile, proviamo la Task API (v0.10+)
+        if not self.use_solutions:
+            try:
+                from mediapipe.tasks.python import vision as mp_vision
+                from mediapipe.tasks.python import BaseOptions
+
+                # Cerca il modello in percorsi comuni o in config
+                try:
+                    from config import HAND_LANDMARKER_MODEL
+                except Exception:
+                    HAND_LANDMARKER_MODEL = 'models/hand_landmarker.task'
+
+                candidate_paths = [
+                    HAND_LANDMARKER_MODEL,
+                    os.path.join('models', 'hand_landmarker.task'),
+                    'hand_landmarker.task',
+                    'hand_landmarker.tflite',
+                    os.path.join('models', 'hand_landmarker.tflite'),
+                ]
+
+                model_path = None
+                for p in candidate_paths:
+                    if p and os.path.exists(p):
+                        model_path = p
+                        break
+
+                if model_path is None:
+                    # Non blocchiamo l'inizializzazione: abilita fallback (nessun riconoscimento)
+                    self.use_tasks = False
+                    self.disabled_reason = (
+                        "Modello MediaPipe HandLandmarker non trovato. "
+                        "Scarica il file modello (es. hand_landmarker.task) e mettilo in 'models/'. "
+                        "Vedi la documentazione MediaPipe per il modello da usare."
+                    )
+                else:
+                    # Costruisci le opzioni per la modalità video
+                    options = mp_vision.HandLandmarkerOptions(
+                        base_options=BaseOptions(model_asset_path=model_path),
+                        running_mode=mp_vision.RunningMode.VIDEO,
+                        num_hands=max_hands,
+                        min_hand_detection_confidence=detection_confidence,
+                        min_tracking_confidence=tracking_confidence,
+                    )
+
+                    self.hand_landmarker = mp_vision.HandLandmarker.create_from_options(options)
+                    self.mp_draw = mp_vision.drawing_utils
+                    self.mp_styles = mp_vision.drawing_styles if hasattr(mp_vision, 'drawing_styles') else None
+                    self.use_tasks = True
+            except Exception as e:
+                # Non blocchiamo l'inizializzazione: mettiamo un flag di disabilitazione
+                self.use_tasks = False
+                self.disabled_reason = (
+                    "Impossibile inizializzare MediaPipe via Task API. "
+                    f"Dettaglio: {e}"
+                )
         
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=max_hands,
-            min_detection_confidence=detection_confidence,
-            min_tracking_confidence=tracking_confidence
-        )
+        # `self.hands` è già creato per mp.solutions; per tasks abbiamo `self.hand_landmarker`.
         
         # Indici dei landmark per ogni dito
         self.finger_tips = [4, 8, 12, 16, 20]  # Pollice, Indice, Medio, Anulare, Mignolo
@@ -81,95 +157,147 @@ class HandDetector:
         Returns:
             Tuple con il frame processato e la lista dei risultati
         """
-        # Converti in RGB per MediaPipe
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(rgb_frame)
-        
         all_hands = []
-        
-        if results.multi_hand_landmarks:
-            for hand_landmarks, handedness in zip(results.multi_hand_landmarks, 
-                                                   results.multi_handedness):
-                # Estrai informazioni sulla mano
-                hand_info = {
-                    'landmarks': hand_landmarks,
-                    'handedness': handedness.classification[0].label,
-                    'confidence': handedness.classification[0].score
-                }
-                all_hands.append(hand_info)
-                
-                # Disegna i landmark
-                if draw:
-                    self.mp_draw.draw_landmarks(
-                        frame,
-                        hand_landmarks,
-                        self.mp_hands.HAND_CONNECTIONS,
-                        self.mp_styles.get_default_hand_landmarks_style(),
-                        self.mp_styles.get_default_hand_connections_style()
-                    )
-        
+
+        if self.use_solutions:
+            # Converti in RGB per MediaPipe solutions
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.hands.process(rgb_frame)
+
+            if results.multi_hand_landmarks:
+                for hand_landmarks, handedness in zip(results.multi_hand_landmarks,
+                                                       results.multi_handedness):
+                    hand_info = {
+                        'landmarks': hand_landmarks,
+                        'handedness': handedness.classification[0].label,
+                        'confidence': handedness.classification[0].score
+                    }
+                    all_hands.append(hand_info)
+
+                    if draw:
+                        # drawing_styles may not exist in very old versions; guard
+                        try:
+                            landmark_style = self.mp_styles.get_default_hand_landmarks_style()
+                            conn_style = self.mp_styles.get_default_hand_connections_style()
+                        except Exception:
+                            landmark_style = None
+                            conn_style = None
+                        self.mp_draw.draw_landmarks(
+                            frame,
+                            hand_landmarks,
+                            self.mp_hands.HAND_CONNECTIONS,
+                            landmark_style,
+                            conn_style
+                        )
+
+        elif self.use_tasks:
+            # Converti BGR->RGB e crea Image per la task API
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # Image expects numpy array in HxWxC uint8
+            from mediapipe.tasks.python.vision.core.image import Image, ImageFormat
+            mp_image = Image(ImageFormat.SRGB, rgb)
+
+            # timestamp in ms
+            timestamp_ms = int(time.time() * 1000)
+            try:
+                result = self.hand_landmarker.detect_for_video(mp_image, timestamp_ms)
+            except Exception:
+                # Try image detect for compatibility if video mode isn't active
+                try:
+                    result = self.hand_landmarker.detect(mp_image)
+                except Exception:
+                    return frame, []
+
+            # result.hand_landmarks is List[List[NormalizedLandmark]]
+            if getattr(result, 'hand_landmarks', None):
+                for i, landmarks_list in enumerate(result.hand_landmarks):
+                    # handedness and confidence may be in result.handedness
+                    hand_info = {
+                        'landmarks': landmarks_list,
+                        'handedness': None,
+                        'confidence': 1.0,
+                    }
+                    # Try to extract handedness
+                    try:
+                        if hasattr(result, 'handedness') and len(result.handedness) > i:
+                            # result.handedness[i] is a list of category lists
+                            hand_info['handedness'] = getattr(result.handedness[i][0].categories[0], 'category_name', None)
+                            hand_info['confidence'] = getattr(result.handedness[i][0].categories[0], 'score', 1.0)
+                    except Exception:
+                        pass
+                    all_hands.append(hand_info)
+
+                    if draw:
+                        try:
+                            # draw_landmarks expects list of NormalizedLandmark and connections
+                            from mediapipe.tasks.python.vision import HandLandmarksConnections
+                            connections = HandLandmarksConnections.HAND_CONNECTIONS
+                            # Use drawing_utils from tasks
+                            self.mp_draw.draw_landmarks(frame, landmarks_list, connections)
+                        except Exception:
+                            pass
+
         return frame, all_hands
-    
+
     def get_finger_states(self, hand_landmarks, frame_shape: Tuple[int, int]) -> List[bool]:
         """
-        Determina quali dita sono estese con algoritmo rotation-invariant.
-        Funziona indipendentemente dall'orientamento della mano.
-        
-        Args:
-            hand_landmarks: Landmark della mano da MediaPipe
-            frame_shape: (height, width) del frame
-            
-        Returns:
-            Lista di 5 booleani [pollice, indice, medio, anulare, mignolo]
+        Determina lo stato (esteso/chiuso) di ciascun dito.
+
+        Restituisce una lista di 5 booleani corrispondenti a
+        [thumb, index, middle, ring, pinky]. Funziona con oggetti
+        `hand_landmarks` di MediaPipe solutions (ha `.landmark`) o
+        con la lista di NormalizedLandmark usata dalla Task API.
         """
+        # Normalizza la rappresentazione dei landmark
+        if hasattr(hand_landmarks, 'landmark'):
+            landmarks = hand_landmarks.landmark
+        else:
+            landmarks = hand_landmarks
+
         h, w = frame_shape[:2]
-        landmarks = hand_landmarks.landmark
-        
-        fingers = []
-        
-        # Pollice - usa distanza euclidea dal polso (già rotation-invariant)
-        thumb_tip = landmarks[4]
-        thumb_ip = landmarks[3]
-        thumb_mcp = landmarks[2]
+
+        margin = GESTURE_DETECTION.get('finger_extension_margin', 0.02)
+        distance_ratio = GESTURE_DETECTION.get('finger_extension_distance_ratio', 1.15)
+
+        fingers: List[bool] = []
+
+        # Wrist per riferimento
         wrist = landmarks[0]
-        
-        # Distanza punta pollice dal polso vs articolazione dal polso
-        dist_tip_wrist = self._calculate_distance(thumb_tip, wrist)
-        dist_ip_wrist = self._calculate_distance(thumb_ip, wrist)
-        
-        # Il pollice è esteso se la punta è più lontana dal polso
-        thumb_extended = dist_tip_wrist > dist_ip_wrist * 1.1  # 10% di tolleranza
-        fingers.append(thumb_extended)
-        
-        # Altri 4 dita - usa solo distanze euclidee (rotation-invariant)
-        for i, (tip_idx, pip_idx, mcp_idx) in enumerate(zip(
-            self.finger_tips[1:], 
-            self.finger_pips[1:], 
-            self.finger_mcps[1:]
-        )):
-            tip = landmarks[tip_idx]
-            pip = landmarks[pip_idx]
-            mcp = landmarks[mcp_idx]
-            
-            # Metodo 1: Confronto distanze da MCP (base del dito)
-            dist_tip_mcp = self._calculate_distance(tip, mcp)
-            dist_pip_mcp = self._calculate_distance(pip, mcp)
-            ratio = GESTURE_DETECTION.get('finger_extension_distance_ratio', 1.15)
-            dist_extended = dist_tip_mcp > dist_pip_mcp * ratio
-            
-            # Metodo 2: Confronto distanze dal polso
-            dist_tip_wrist = self._calculate_distance(tip, wrist)
-            dist_mcp_wrist = self._calculate_distance(mcp, wrist)
-            wrist_extended = dist_tip_wrist > dist_mcp_wrist * 1.3
-            
-            # Metodo 3: Verifica angolo - dito esteso ha angolo > 140°
-            angle = self._calculate_angle(tip, pip, mcp)
-            angle_extended = angle > 140
-            
-            # Dito esteso se almeno 2 metodi concordano
-            votes = sum([dist_extended, wrist_extended, angle_extended])
-            fingers.append(votes >= 2)
-        
+        # Calcola una scala di riferimento: distanza tra polso e middle_mcp
+        try:
+            middle_mcp = landmarks[self.finger_mcps[2]]
+            ref_size = self._calculate_distance(wrist, middle_mcp) + 1e-6
+        except Exception:
+            ref_size = 0.1
+
+        # Thumb: approccio semplice basato su distanza relativa lungo X rispetto al pip
+        try:
+            thumb_tip = landmarks[self.finger_tips[0]]
+            thumb_ip = landmarks[self.finger_pips[0]]
+            # Se la distanza del pollice dalla base lungo X è abbastanza grande lo consideriamo esteso
+            thumb_ext = abs(thumb_tip.x - thumb_ip.x) > margin * distance_ratio
+        except Exception:
+            thumb_ext = False
+
+        fingers.append(bool(thumb_ext))
+
+        # Altri 4 dita: controlla se il tip è più alto (y minore) del pip (segno di estensione)
+        for tip_idx, pip_idx in zip(self.finger_tips[1:], self.finger_pips[1:]):
+            try:
+                tip = landmarks[tip_idx]
+                pip = landmarks[pip_idx]
+                # Normalized coords: y minore => dito verso l'alto (esteso)
+                extended = (tip.y < pip.y - margin)
+
+                # Ulteriore controllo: la distanza tip-polso deve essere >= ratio * ref_size
+                tip_wrist_dist = self._calculate_distance(tip, wrist)
+                if ref_size > 0 and tip_wrist_dist < ref_size * distance_ratio:
+                    extended = False
+
+                fingers.append(bool(extended))
+            except Exception:
+                fingers.append(False)
+
         return fingers
     
     def _calculate_distance(self, point1, point2) -> float:
@@ -207,7 +335,11 @@ class HandDetector:
         Returns:
             Tupla (is_fist, confidence)
         """
-        landmarks = hand_landmarks.landmark
+        # Support both MediaPipe solutions (.landmark) and Task API (list)
+        if hasattr(hand_landmarks, 'landmark'):
+            landmarks = hand_landmarks.landmark
+        else:
+            landmarks = hand_landmarks
         
         # Se troppe dita estese, non è un pugno
         num_extended = sum(fingers)
@@ -300,7 +432,10 @@ class HandDetector:
             Tupla (gesto, confidenza) dove confidenza è un valore tra 0.0 e 1.0
         """
         fingers = self.get_finger_states(hand_landmarks, frame_shape)
-        landmarks = hand_landmarks.landmark
+        if hasattr(hand_landmarks, 'landmark'):
+            landmarks = hand_landmarks.landmark
+        else:
+            landmarks = hand_landmarks
         
         # Conta le dita estese
         extended_count = sum(fingers)
@@ -460,7 +595,10 @@ class HandDetector:
             Tuple (x, y) del centro della mano in pixel
         """
         h, w = frame_shape[:2]
-        landmarks = hand_landmarks.landmark
+        if hasattr(hand_landmarks, 'landmark'):
+            landmarks = hand_landmarks.landmark
+        else:
+            landmarks = hand_landmarks
         
         # Usa il palmo (landmark 0) come centro
         palm = landmarks[0]
@@ -468,7 +606,19 @@ class HandDetector:
     
     def release(self):
         """Rilascia le risorse."""
-        self.hands.close()
+        try:
+            if getattr(self, 'use_solutions', False) and hasattr(self, 'hands'):
+                try:
+                    self.hands.close()
+                except Exception:
+                    pass
+            if getattr(self, 'use_tasks', False) and hasattr(self, 'hand_landmarker'):
+                try:
+                    self.hand_landmarker.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 class CameraManager:

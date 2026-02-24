@@ -9,19 +9,7 @@ Controlli:
 - Tastiera per inserimento nome
 """
 
-try:
-    import pygame  # type: ignore[import]
-    PYGAME_AVAILABLE = True
-except ImportError as e:
-    print(f"❌ ERRORE: pygame non è installato!")
-    print(f"   Soluzione: python -m pip install pygame")
-    print(f"   Dettagli: {e}")
-    import sys
-    sys.exit(1)
-except Exception as e:
-    print(f"❌ ERRORE sconosciuto nell'import di pygame: {e}")
-    import sys
-    sys.exit(1)
+import pygame
 import sys
 import time
 from typing import Optional
@@ -30,10 +18,9 @@ from typing import Optional
 from config import (
     SCREEN_WIDTH, SCREEN_HEIGHT, FPS, FULLSCREEN,
     CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FLIP,
-        GESTURE_HOLD_TIME, COUNTDOWN_TIME, ROUNDS_TO_WIN,
+    GESTURE_HOLD_TIME, COUNTDOWN_TIME, ROUNDS_TO_WIN,
     HIGHSCORE_FILE, MAX_HIGHSCORES, DEBUG_MODE, SHOW_FPS,
     GAME_SETTINGS, GameMode, TimedDifficulty, CPU_MOVE_TIMER
-        , HAND_DETECTION_FPS
 )
 from gesture.hand_detector import HandDetector, CameraManager
 from game.game_logic import GameLogic, Move
@@ -51,30 +38,13 @@ class MorraCineseGame:
     
     def __init__(self):
         """Inizializza il gioco."""
-        # Pygame è già stato verificato durante l'import
-        # Se arriviamo qui, pygame è disponibile
-        
-        # Inizializza pygame
-        try:
-            pygame.init()
-        except Exception as e:
-            print(f"❌ Errore nell'inizializzazione di pygame: {e}")
-            raise SystemExit("Impossibile inizializzare pygame")
-        
-        # Imposta il titolo della finestra
-        try:
-            pygame.display.set_caption("Morra Cinese - Portatile Interattiva")
-        except Exception as e:
-            print(f"⚠️ Avviso: Impossibile impostare il titolo della finestra: {e}")
+        # Inizializza Pygame
+        pygame.init()
+        pygame.display.set_caption("Morra Cinese - Portatile Interattiva")
         
         # Crea la finestra
-        try:
-            runtime_fullscreen = getattr(GAME_SETTINGS, 'fullscreen', FULLSCREEN)
-            flags = pygame.FULLSCREEN if runtime_fullscreen else 0
-            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
-        except Exception as e:
-            print(f"❌ Errore nella creazione della finestra pygame: {e}")
-            raise SystemExit("Impossibile creare finestra pygame")
+        flags = pygame.FULLSCREEN if FULLSCREEN else 0
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
         self.clock = pygame.time.Clock()
         self.running = True
         
@@ -103,9 +73,6 @@ class MorraCineseGame:
         # Notifica camera connessa
         self._show_camera_connected_notification = False
         self._camera_notification_time = 0
-        # Hand detection throttling
-        self.last_detection_time = 0.0
-        self.detection_interval = 1.0 / float(getattr(GAME_SETTINGS, 'hand_detection_fps', HAND_DETECTION_FPS))
     
     def _init_camera(self):
         """Inizializza la camera."""
@@ -185,14 +152,9 @@ class MorraCineseGame:
             # Gestione eventi
             self._handle_events()
             
-            # Aggiorna camera
+            # Aggiorna camera e gesti
             self._update_camera()
-            # Aggiorna il rilevamento gesti solo alla frequenza configurata
-            now = time.time()
-            if (now - self.last_detection_time) >= self.detection_interval or \
-               self.state_manager.current_state in (GameState.COUNTDOWN, GameState.TIMED_PLAYER_TURN):
-                self._update_gesture_detection()
-                self.last_detection_time = now
+            self._update_gesture_detection()
             
             # Aggiorna logica di gioco
             self._update_game_logic()
@@ -258,7 +220,7 @@ class MorraCineseGame:
                 self._process_player_move('scissors')
         
         elif current_state == GameState.TIMED_PLAYER_TURN:
-            # Controlli da tastiera per modalità Variante Riflessi
+            # Controlli da tastiera per modalità a tempo
             if event.key == pygame.K_1:  # Sasso
                 self._process_timed_player_move('rock')
             elif event.key == pygame.K_2:  # Carta
@@ -277,27 +239,17 @@ class MorraCineseGame:
             elif event.key == pygame.K_DOWN:
                 self.screen_manager.settings_down()
             elif event.key == pygame.K_LEFT:
-                prev_fullscreen = getattr(GAME_SETTINGS, 'fullscreen', None)
                 result = self.screen_manager.settings_change_value(-1)
                 # Verifica che sia un intero valido (non bool) e >= 0
                 if isinstance(result, int) and not isinstance(result, bool) and result >= 0:
                     # Cambio camera richiesto
                     self._switch_camera(result)
-                # Se l'opzione fullscreen è stata modificata, applica il cambio display
-                new_fullscreen = getattr(GAME_SETTINGS, 'fullscreen', None)
-                if prev_fullscreen is not None and new_fullscreen is not None and prev_fullscreen != new_fullscreen:
-                    self._apply_fullscreen()
             elif event.key == pygame.K_RIGHT:
-                prev_fullscreen = getattr(GAME_SETTINGS, 'fullscreen', None)
                 result = self.screen_manager.settings_change_value(1)
                 # Verifica che sia un intero valido (non bool) e >= 0
                 if isinstance(result, int) and not isinstance(result, bool) and result >= 0:
                     # Cambio camera richiesto
                     self._switch_camera(result)
-                # Se l'opzione fullscreen è stata modificata, applica il cambio display
-                new_fullscreen = getattr(GAME_SETTINGS, 'fullscreen', None)
-                if prev_fullscreen is not None and new_fullscreen is not None and prev_fullscreen != new_fullscreen:
-                    self._apply_fullscreen()
             elif event.key == pygame.K_r:
                 # Shortcut per aggiornare lista camera
                 self._refresh_cameras_in_settings()
@@ -419,14 +371,14 @@ class MorraCineseGame:
         
         # Scegli lo stato iniziale in base alla modalità
         if GAME_SETTINGS.game_mode == GameMode.TIMED:
-            # Variante Riflessi: la CPU inizia
+            # Modalità a tempo: la CPU inizia
             self._start_timed_cpu_turn()
         else:
-            # Modalità Tradizionale
+            # Modalità classica
             self.state_manager.change_state(GameState.PLAYING)
     
     def _start_timed_cpu_turn(self):
-        """Avvia il turno della CPU nella modalità Variante Riflessi."""
+        """Avvia il turno della CPU nella modalità a tempo."""
         # Genera la mossa della CPU in anticipo (ma non la mostra)
         cpu_move = self.game_logic.get_cpu_move()
         self.state_manager.change_state(
@@ -436,7 +388,7 @@ class MorraCineseGame:
         )
     
     def _start_timed_player_turn(self):
-        """Avvia il turno del giocatore nella modalità Variante Riflessi."""
+        """Avvia il turno del giocatore nella modalità a tempo."""
         response_time = GAME_SETTINGS.get_player_response_time()
         self.hand_detector.reset_gesture_tracking()
         self.state_manager.change_state(
@@ -447,7 +399,7 @@ class MorraCineseGame:
         )
     
     def _process_timed_player_move(self, gesture: str):
-        """Processa la mossa del giocatore nella modalità Variante Riflessi."""
+        """Processa la mossa del giocatore nella modalità a tempo."""
         # Salva la mossa e risolvi immediatamente
         self.state_manager.set_data('player_move', gesture)
         self._resolve_timed_round()
@@ -641,17 +593,6 @@ class MorraCineseGame:
         print(f"Camera disponibili: {len(available_cameras)}")
         for idx, name in available_cameras:
             print(f"  - {name}")
-
-    def _apply_fullscreen(self):
-        """Applica la modalità fullscreen basata su GAME_SETTINGS.fullscreen e aggiorna il renderer."""
-        try:
-            flags = pygame.FULLSCREEN if getattr(GAME_SETTINGS, 'fullscreen', False) else 0
-            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
-            # Aggiorna renderer con la nuova superficie
-            if hasattr(self, 'renderer') and self.renderer:
-                self.renderer.update_screen(self.screen)
-        except Exception as e:
-            print(f"Impossibile applicare fullscreen: {e}")
     
     def _try_connect_camera(self, camera_index: int) -> bool:
         """
@@ -708,7 +649,7 @@ class MorraCineseGame:
                 self.gesture_progress = 1.0  # Mostra progresso pieno
                 return
             
-            # Durante il turno del giocatore in Variante Riflessi, aggiorna la mossa immediatamente
+            # Durante il turno del giocatore in modalità a tempo, aggiorna la mossa immediatamente
             if self.state_manager.current_state == GameState.TIMED_PLAYER_TURN:
                 if self.current_gesture in ['rock', 'paper', 'scissors']:
                     self.state_manager.set_data('player_move', self.current_gesture)
@@ -748,7 +689,7 @@ class MorraCineseGame:
                 self._update_player_move(gesture)
                 self.hand_detector.reset_gesture_tracking()
         
-        # Variante Riflessi - turno del giocatore
+        # Modalità a tempo - turno del giocatore
         elif current_state == GameState.TIMED_PLAYER_TURN:
             if gesture in ['rock', 'paper', 'scissors']:
                 self._process_timed_player_move(gesture)
@@ -770,18 +711,18 @@ class MorraCineseGame:
         """Aggiorna la logica di gioco."""
         current_state = self.state_manager.current_state
         
-        # Gestione countdown (modalità Tradizionale)
+        # Gestione countdown (modalità classica)
         if current_state == GameState.COUNTDOWN:
             if self.state_manager.is_state_timed_out():
                 self._resolve_round()
         
-        # Gestione turno CPU (Variante Riflessi)
+        # Gestione turno CPU (modalità a tempo)
         elif current_state == GameState.TIMED_CPU_MOVE:
             if self.state_manager.is_state_timed_out():
                 # La CPU ha fatto la sua mossa, tocca al giocatore
                 self._start_timed_player_turn()
         
-        # Gestione turno giocatore (Variante Riflessi)
+        # Gestione turno giocatore (modalità a tempo)
         elif current_state == GameState.TIMED_PLAYER_TURN:
             # Controlla se il giocatore ha fatto una mossa
             player_move = self.state_manager.get_data('player_move')
@@ -804,7 +745,7 @@ class MorraCineseGame:
                         self.state_manager.change_state(GameState.PLAYING)
     
     def _handle_player_timeout(self):
-        """Gestisce il timeout del giocatore nella modalità Variante Riflessi."""
+        """Gestisce il timeout del giocatore nella modalità a tempo."""
         # Il giocatore non ha fatto la mossa in tempo - conta come sconfitta
         cpu_gesture = self.state_manager.get_data('cpu_move')
         
@@ -822,7 +763,7 @@ class MorraCineseGame:
         )
     
     def _resolve_timed_round(self):
-        """Risolve un round nella modalità Variante Riflessi."""
+        """Risolve un round nella modalità a tempo."""
         player_gesture = self.state_manager.get_data('player_move')
         cpu_gesture = self.state_manager.get_data('cpu_move')
         
@@ -964,15 +905,8 @@ class MorraCineseGame:
         if self.camera:
             self.camera.release()
         
-        try:
-            self.hand_detector.release()
-        except Exception:
-            pass
-        if hasattr(pygame, 'quit') and callable(getattr(pygame, 'quit')):
-            try:
-                pygame.quit()
-            except Exception:
-                pass
+        self.hand_detector.release()
+        pygame.quit()
 
 
 def main():
@@ -989,11 +923,7 @@ def main():
         print(f"Errore critico: {e}")
         import traceback
         traceback.print_exc()
-        if hasattr(pygame, 'quit') and callable(getattr(pygame, 'quit')):
-            try:
-                pygame.quit()
-            except Exception:
-                pass
+        pygame.quit()
         sys.exit(1)
     
     print("Arrivederci!")

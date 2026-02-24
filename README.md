@@ -108,6 +108,19 @@ python main.py
 - **Mano destra verso l'alto**: Sposta selezione in alto
 - **Pugno chiuso o palmo rivolto in avanti**: Conferma selezione
 
+#### Durante il Gioco
+1. **Menu**: Seleziona "GIOCA" per iniziare una nuova partita
+2. **Inserimento Nome**: Digita il tuo nome sulla tastiera (minimo 3 lettere)
+3. **Gioco**: 
+   - Quando appare "Fai il tuo gesto!", forma il gesto con la mano:
+     - **Pugno**: Sasso ✊
+     - **Palmo aperto**: Carta ✋
+     - **Indice e medio aperti**: Forbice ✌️
+   - Mantieni il gesto per ~1 secondo finché non viene riconosciuto
+   - L'IA gioca automaticamente
+4. **Risultato**: Vedi chi ha vinto il round
+5. **Vittoria**: Primo a 3 punti vince!
+
 #### Tasti Speciali
 - **ESC**: Esci dal gioco
 - **ENTER**: Conferma nei menu di testo

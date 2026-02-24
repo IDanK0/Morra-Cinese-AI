@@ -7,7 +7,7 @@ Configurazione globale del gioco Morra Cinese
 # =====================
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
-FPS = 30
+FPS = 60
 FULLSCREEN = False
 
 # =====================
@@ -17,10 +17,6 @@ CAMERA_INDEX = 0  # Indice della webcam (0 = default)
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 CAMERA_FLIP = True  # Specchia l'immagine orizzontalmente
-
-# Frequenza massima del riconoscimento gesti (riduce carico CPU/GPU)
-# Rilevamento mano verrà eseguito fino a questa frequenza (FPS)
-HAND_DETECTION_FPS = 15
 
 # =====================
 # CONFIGURAZIONE GIOCO
@@ -49,17 +45,17 @@ GESTURE_DETECTION = {
 }
 
 # =====================
-# MODALITÀ VARIANTE RIFLESSI
+# MODALITÀ A TEMPO
 # =====================
 from enum import Enum
 
 class GameMode(Enum):
     """Modalità di gioco disponibili."""
-    CLASSIC = 'classic'      # Modalità tradizionale
-    TIMED = 'timed'          # Variante Riflessi
+    CLASSIC = 'classic'      # Modalità classica
+    TIMED = 'timed'          # Modalità a tempo
 
 class TimedDifficulty(Enum):
-    """Difficoltà per la modalità Variante Riflessi."""
+    """Difficoltà per la modalità a tempo."""
     EASY = 'easy'       # Facile - 6 secondi
     MEDIUM = 'medium'   # Media - 4 secondi
     HARD = 'hard'       # Difficile - 2 secondi
@@ -157,11 +153,11 @@ COLORS = {
 }
 
 # =====================
-# SIMBOLI UI (Con Emoji Unicode)
+# EMOJI / SIMBOLI UI
 # =====================
 UI_SYMBOLS = {
     'rock': '✊',
-    'paper': '✋',
+    'paper': '✋', 
     'scissors': '✌️',
     'trophy': '🏆',
     'medal_gold': '🥇',
@@ -173,15 +169,15 @@ UI_SYMBOLS = {
     'target': '🎯',
     'gamepad': '🎮',
     'settings': '⚙️',
-    'back': '◀️',
-    'next': '▶️',
-    'check': '✅',
-    'cross': '❌',
+    'back': '←',
+    'next': '→',
+    'check': '✓',
+    'cross': '✗',
     'timer': '⏱️',
     'camera': '📷',
     'warning': '⚠️',
     'info': 'ℹ️',
-    'play': '▶️',
+    'play': '▶',
     'vs': '⚔️',
 }
 
@@ -260,8 +256,6 @@ class GameSettings:
         self.available_cameras = []  # Lista delle camera disponibili [(indice, nome)]
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
-        # Fullscreen runtime flag
-        self.fullscreen = FULLSCREEN
         # Modalità di gioco
         self.game_mode = GameMode.CLASSIC
         self.timed_difficulty = TimedDifficulty.MEDIUM
@@ -274,7 +268,6 @@ class GameSettings:
         self.camera_index = CAMERA_INDEX
         self.audio_enabled = AUDIO_ENABLED
         self.show_fps = SHOW_FPS
-        self.fullscreen = FULLSCREEN
         self.game_mode = GameMode.CLASSIC
         self.timed_difficulty = TimedDifficulty.MEDIUM
     
@@ -291,10 +284,3 @@ class GameSettings:
 
 # Istanza globale delle impostazioni
 GAME_SETTINGS = GameSettings()
-
-# Percorso del modello MediaPipe Hand Landmarker (usato dalla API "tasks").
-# Se installi una versione di MediaPipe >= 0.10, scarica il file modello
-# e mettilo in questo percorso (es. models/hand_landmarker.task).
-# Vedi la documentazione MediaPipe per il modello corretto.
-HAND_LANDMARKER_MODEL = 'models/hand_landmarker.task'
-

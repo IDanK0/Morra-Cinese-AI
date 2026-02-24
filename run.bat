@@ -15,20 +15,15 @@ echo   MORRA CINESE - PORTATILE INTERATTIVA
 echo ========================================
 echo.
 
-REM Verifica se l'ambiente virtuale esiste (.venv preferito, fallback a venv)
-if exist ".venv" (
-    echo Attivazione ambiente virtuale (.venv)...
-    call .venv\Scripts\activate.bat
-    echo [OK] Ambiente attivato (.venv)
-    echo.
-) else if exist "venv" (
-    echo Attivazione ambiente virtuale (venv)...
+REM Verifica se l'ambiente virtuale esiste
+if exist "venv" (
+    echo Attivazione ambiente virtuale...
     call venv\Scripts\activate.bat
-    echo [OK] Ambiente attivato (venv)
+    echo [OK] Ambiente attivato
     echo.
 ) else (
     echo [ATTENZIONE] Ambiente virtuale non trovato!
-    echo Eseguire setup.bat prima di avviare il gioco oppure creare un virtualenv.
+    echo Eseguire setup.bat prima di avviare il gioco.
     echo.
     pause
     exit /b 1

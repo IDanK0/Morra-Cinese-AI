@@ -2,20 +2,10 @@
 Modulo di rendering grafico per il gioco - Design Moderno Gaming
 """
 
-try:
-    import pygame  # type: ignore[import]
-    if not hasattr(pygame, 'Surface') or not hasattr(pygame, 'display'):
-        raise ImportError("pygame non ha gli attributi richiesti (Surface, display)")
-except ImportError as e:
-    print(f"❌ ERRORE: pygame non è disponibile!")
-    print(f"   {"Motivo: " + str(e) if str(e) else ""}")
-    print(f"   Soluzione: python -m pip install pygame")
-    import sys
-    sys.exit(1)
-
+import pygame
 import numpy as np
 import cv2
-from typing import Tuple, Optional, List, Any
+from typing import Tuple, Optional, List
 import math
 import random
 
@@ -63,7 +53,7 @@ class Renderer:
     Design moderno con effetti gaming.
     """
     
-    def __init__(self, screen: Any):
+    def __init__(self, screen: pygame.Surface):
         """
         Inizializza il renderer.
         
@@ -73,34 +63,22 @@ class Renderer:
         self.screen = screen
         self.width = screen.get_width()
         self.height = screen.get_height()
-
-        # Calcola scala rispetto alla risoluzione base (SCREEN_WIDTH x SCREEN_HEIGHT)
+        
+        # Carica i font - Stile moderno
         pygame.font.init()
-        try:
-            base_w = SCREEN_WIDTH
-            base_h = SCREEN_HEIGHT
-        except:
-            base_w, base_h = 800, 600
-
-        self.scale = max(0.5, min(self.width / base_w, self.height / base_h))
-
-        def _fs(size):
-            return max(12, int(size * self.scale))
-
-        # Carica i font scalati per supportare diverse risoluzioni
         self.fonts = {
-            'hero': pygame.font.Font(None, _fs(96)),       # Titoli grandi
-            'title': pygame.font.Font(None, _fs(72)),      # Titoli
-            'large': pygame.font.Font(None, _fs(52)),      # Sottotitoli
-            'medium': pygame.font.Font(None, _fs(38)),     # Testo normale
-            'small': pygame.font.Font(None, _fs(28)),      # Testo piccolo
-            'tiny': pygame.font.Font(None, _fs(22)),       # Testo molto piccolo
-            'micro': pygame.font.Font(None, _fs(18)),      # Micro testo
+            'hero': pygame.font.Font(None, 96),       # Titoli grandi
+            'title': pygame.font.Font(None, 72),      # Titoli
+            'large': pygame.font.Font(None, 52),      # Sottotitoli
+            'medium': pygame.font.Font(None, 38),     # Testo normale
+            'small': pygame.font.Font(None, 28),      # Testo piccolo
+            'tiny': pygame.font.Font(None, 22),       # Testo molto piccolo
+            'micro': pygame.font.Font(None, 18),      # Micro testo
         }
-
-        # Font per simboli/icone (fallback sul font title)
+        
+        # Font emoji (per simboli)
         try:
-            self.emoji_font = pygame.font.Font(None, _fs(64))
+            self.emoji_font = pygame.font.Font(None, 64)
         except:
             self.emoji_font = self.fonts['title']
         
@@ -119,37 +97,6 @@ class Renderer:
         
         # Pre-render di alcune superfici
         self._init_surfaces()
-
-    def update_screen(self, screen: Any):
-        """Aggiorna la superficie di rendering (es. dopo toggle fullscreen) e ricalcola font/scale."""
-        self.screen = screen
-        self.width = screen.get_width()
-        self.height = screen.get_height()
-        try:
-            base_w = SCREEN_WIDTH
-            base_h = SCREEN_HEIGHT
-        except:
-            base_w, base_h = 800, 600
-
-        self.scale = max(0.5, min(self.width / base_w, self.height / base_h))
-
-        def _fs(size):
-            return max(12, int(size * self.scale))
-
-        # Ricrea i font con la nuova scala
-        self.fonts = {
-            'hero': pygame.font.Font(None, _fs(96)),
-            'title': pygame.font.Font(None, _fs(72)),
-            'large': pygame.font.Font(None, _fs(52)),
-            'medium': pygame.font.Font(None, _fs(38)),
-            'small': pygame.font.Font(None, _fs(28)),
-            'tiny': pygame.font.Font(None, _fs(22)),
-            'micro': pygame.font.Font(None, _fs(18)),
-        }
-        try:
-            self.emoji_font = pygame.font.Font(None, _fs(64))
-        except:
-            self.emoji_font = self.fonts['title']
     
     def _init_surfaces(self):
         """Inizializza superfici pre-renderizzate."""
@@ -203,16 +150,18 @@ class Renderer:
                 pygame.draw.circle(surf, (*color, a), (radius, radius), r)
             self.screen.blit(surf, (x - radius, y - radius))
     
-    def draw_text(self,
-                  text: str,
-                  pos: Tuple[int, int],
+    def draw_text(self, 
+                  text: str, 
+                  pos: Tuple[int, int], 
                   font_size: str = 'medium',
                   color: Tuple[int, int, int] = None,
                   center: bool = False,
                   shadow: bool = False,
                   glow: bool = False,
-                  glow_color: Tuple[int, int, int] = None) -> Any:
-        """Disegna testo con effetti moderni."""
+                  glow_color: Tuple[int, int, int] = None) -> pygame.Rect:
+        """
+        Disegna testo con effetti moderni.
+        """
         if color is None:
             color = COLORS['white']
         
@@ -259,7 +208,7 @@ class Renderer:
                   size: Tuple[int, int],
                   selected: bool = False,
                   glow_color: Tuple[int, int, int] = None,
-                  border_radius: int = 15) -> Any:
+                  border_radius: int = 15) -> pygame.Rect:
         """
         Disegna una card moderna con effetti.
         """
@@ -296,7 +245,7 @@ class Renderer:
                            size: Tuple[int, int] = (220, 55),
                            selected: bool = False,
                            color: Tuple[int, int, int] = None,
-                           icon: str = None) -> Any:
+                           icon: str = None) -> pygame.Rect:
         """
         Disegna un pulsante moderno con effetti gaming.
         """
@@ -349,7 +298,7 @@ class Renderer:
                            pos: Tuple[int, int],
                            size: Tuple[int, int] = (200, 50),
                            selected: bool = False,
-                           glow_intensity: float = 0.0) -> Any:
+                           glow_intensity: float = 0.0) -> pygame.Rect:
         """Wrapper per compatibilità - usa draw_modern_button."""
         return self.draw_modern_button(text, pos, size, selected)
     
@@ -358,7 +307,7 @@ class Renderer:
                     pos: Tuple[int, int],
                     size: Tuple[int, int] = (200, 50),
                     selected: bool = False,
-                    color: Tuple[int, int, int] = None) -> Any:
+                    color: Tuple[int, int, int] = None) -> pygame.Rect:
         """Wrapper per compatibilità."""
         return self.draw_modern_button(text, pos, size, selected, color)
     
@@ -417,7 +366,7 @@ class Renderer:
         self.draw_text("CAM", (pos[0], pos[1] - 10), 'large', COLORS['muted'], center=True)
         self.draw_text("Non connessa", (pos[0], pos[1] + 30), 'tiny', COLORS['muted'], center=True)
     
-    def _draw_corner_decorations(self, rect: Any, color: Tuple[int, int, int]):
+    def _draw_corner_decorations(self, rect: pygame.Rect, color: Tuple[int, int, int]):
         """Disegna decorazioni agli angoli in stile tech."""
         corner_size = 15
         thickness = 2
@@ -513,9 +462,9 @@ class Renderer:
         Disegna l'icona di una mossa con stile moderno.
         """
         move_data = {
-            'rock': {'symbol': 'O', 'color': COLORS['rock'], 'bg': COLORS['rock_bg'], 'name': 'SASSO'},
-            'paper': {'symbol': '[_]', 'color': COLORS['paper'], 'bg': COLORS['paper_bg'], 'name': 'CARTA'},
-            'scissors': {'symbol': '><', 'color': COLORS['scissors'], 'bg': COLORS['scissors_bg'], 'name': 'FORBICE'}
+            'rock': {'symbol': 'S', 'color': COLORS['rock'], 'bg': COLORS['rock_bg'], 'name': 'SASSO'},
+            'paper': {'symbol': 'C', 'color': COLORS['paper'], 'bg': COLORS['paper_bg'], 'name': 'CARTA'},
+            'scissors': {'symbol': 'F', 'color': COLORS['scissors'], 'bg': COLORS['scissors_bg'], 'name': 'FORBICE'}
         }
         
         data = move_data.get(move, {'symbol': '?', 'color': COLORS['gray'], 'bg': COLORS['dark_gray'], 'name': '?'})
@@ -539,8 +488,8 @@ class Renderer:
             pygame.draw.circle(self.screen, data['bg'], pos, size // 2)
             pygame.draw.circle(self.screen, move_color, pos, size // 2, width=3)
         
-        # Simbolo - usa un carattere grande e leggibile
-        self.draw_text(data['symbol'], pos, 'hero', move_color, center=True)
+        # Simbolo
+        self.draw_text(data['symbol'], pos, 'title', COLORS['white'], center=True)
     
     def draw_move_icon_enhanced(self,
                                move: str,
@@ -874,7 +823,7 @@ class Renderer:
                                      (int(particle.x), int(particle.y)), size)
     
     def draw_gradient_rect(self,
-                          rect: Any,
+                          rect: pygame.Rect,
                           color_top: Tuple[int, int, int],
                           color_bottom: Tuple[int, int, int]):
         """
